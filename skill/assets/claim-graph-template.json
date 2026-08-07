@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "symbol": "{{SYMBOL}}",
+  "as_of": "{{AS_OF}}",
+  "evidence_freeze_hash": "{{EVIDENCE_FREEZE_HASH}}",
+  "claims": [
+    {
+      "claim_id": "{{SYMBOL}}-FUND-001",
+      "label": "INFERENCE",
+      "claim": "",
+      "direction": "unknown",
+      "horizon": "",
+      "evidence_refs": [],
+      "depends_on": [],
+      "counterevidence": [],
+      "invalidation": [],
+      "confidence": null
+    }
+  ]
+}

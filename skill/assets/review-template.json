@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "role": "bull",
+  "evidence_freeze_hash": "{{EVIDENCE_FREEZE_HASH}}",
+  "findings": [
+    {
+      "finding_id": "bull-001",
+      "claim_id": null,
+      "action": "no_change",
+      "strength_delta": null,
+      "reason": "",
+      "evidence_refs": []
+    }
+  ],
+  "evidence_requests": []
+}

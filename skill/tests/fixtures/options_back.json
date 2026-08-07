@@ -1,0 +1,6 @@
+{"provider":"fixture","options":[
+  {"type":"call","strike":105,"expiration":"2026-06-19","bid":8.4,"ask":9.2,"volume":80,"open_interest":500},
+  {"type":"put","strike":105,"expiration":"2026-06-19","bid":3.4,"ask":4.2,"volume":90,"open_interest":600},
+  {"type":"call","strike":110,"expiration":"2026-06-19","bid":5.4,"ask":6.2,"volume":100,"open_interest":650},
+  {"type":"put","strike":110,"expiration":"2026-06-19","bid":5.2,"ask":6.0,"volume":110,"open_interest":700}
+]}

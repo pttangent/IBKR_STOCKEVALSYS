@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StockEval Research Arbitration",
+  "type": "object",
+  "required": ["schema_version", "evidence_freeze_hash", "thesis_state", "scenarios", "claim_adjustments", "unresolved_evidence"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "evidence_freeze_hash": {"type": "string"},
+    "thesis_state": {
+      "enum": ["READY_CONDITIONAL", "WAIT_CONFIRMATION", "NEEDS_EVIDENCE", "RISK_BLOCKED", "THESIS_INVALIDATED", "MONITOR_ONLY", "RESEARCH_READY"]
+    },
+    "scenarios": {
+      "type": "object",
+      "required": ["bear", "base", "bull", "unknown"],
+      "additionalProperties": {
+        "type": "object",
+        "required": ["probability", "reason"],
+        "properties": {
+          "probability": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+          "reason": {"type": "string"}
+        }
+      }
+    },
+    "claim_adjustments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim_id", "decision", "reason", "evidence_refs"],
+        "properties": {
+          "claim_id": {"type": "string"},
+          "decision": {"enum": ["retain", "strengthen", "weaken", "reject", "reframe"]},
+          "reason": {"type": "string"},
+          "evidence_refs": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "unresolved_evidence": {"type": "array"}
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StockEval Claim Graph",
+  "type": "object",
+  "required": ["schema_version", "symbol", "as_of", "evidence_freeze_hash", "claims"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "symbol": {"type": "string"},
+    "as_of": {"type": "string"},
+    "evidence_freeze_hash": {"type": "string"},
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim_id", "label", "claim", "direction", "horizon", "evidence_refs"],
+        "properties": {
+          "claim_id": {"type": "string"},
+          "label": {"enum": ["FACT", "DATA_RESULT", "MODEL_OUTPUT", "INFERENCE", "ASSUMPTION", "UNVERIFIED"]},
+          "claim": {"type": "string"},
+          "direction": {"enum": ["positive", "negative", "neutral", "mixed", "unknown"]},
+          "horizon": {"type": "string"},
+          "evidence_refs": {"type": "array", "items": {"type": "string"}},
+          "depends_on": {"type": "array", "items": {"type": "string"}},
+          "counterevidence": {"type": "array", "items": {"type": "string"}},
+          "invalidation": {"type": "array", "items": {"type": "string"}},
+          "confidence": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
+        }
+      }
+    }
+  }
+}

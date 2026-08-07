@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StockEval Adversarial Review",
+  "type": "object",
+  "required": ["schema_version", "role", "evidence_freeze_hash", "findings", "evidence_requests"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "role": {"enum": ["bull", "bear", "skeptic"]},
+    "evidence_freeze_hash": {"type": "string"},
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["finding_id", "reason", "evidence_refs"],
+        "properties": {
+          "finding_id": {"type": "string"},
+          "claim_id": {"type": ["string", "null"]},
+          "action": {"enum": ["support", "weaken", "reject", "reframe", "no_change"]},
+          "strength_delta": {"type": ["number", "null"], "minimum": -1, "maximum": 1},
+          "reason": {"type": "string"},
+          "evidence_refs": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "evidence_requests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["request", "why_material"],
+        "properties": {
+          "request": {"type": "string"},
+          "why_material": {"type": "string"},
+          "preferred_source": {"type": ["string", "null"]}
+        }
+      }
+    }
+  }
+}

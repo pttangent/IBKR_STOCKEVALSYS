@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StockEval Decision Record",
+  "type": "object",
+  "required": ["symbol", "as_of", "evidence_freeze_hash", "thesis_state", "scenarios"],
+  "properties": {
+    "decision_id": {"type": "string"},
+    "symbol": {"type": "string"},
+    "as_of": {"type": "string"},
+    "horizon": {"type": ["string", "null"]},
+    "evidence_freeze_hash": {"type": "string"},
+    "thesis_state": {"type": "string"},
+    "scenarios": {"type": "object"},
+    "expected_range": {"type": ["array", "null"]},
+    "key_claim_ids": {"type": "array", "items": {"type": "string"}},
+    "invalidation": {"type": "array", "items": {"type": "string"}}
+  }
+}
