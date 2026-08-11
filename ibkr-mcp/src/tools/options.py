@@ -1,5 +1,6 @@
-"""Options trading tools for IBKR TWS API."""
+"""Options research tools for IBKR TWS API."""
 
+import os
 from typing import Dict, Any, List, Optional
 from mcp.server.fastmcp import FastMCP, Context
 from mcp.server.session import ServerSession
@@ -8,7 +9,7 @@ from ..models import AppContext
 
 
 def register_options_tools(mcp: FastMCP):
-    """Register options trading tools."""
+    """Register options research tools plus an opt-in order endpoint guard."""
     
     @mcp.tool()
     async def ibkr_calculate_option_price(
@@ -252,23 +253,14 @@ def register_options_tools(mcp: FastMCP):
         exchange: str = "SMART",
         currency: str = "USD"
     ) -> Dict[str, Any]:
-        """Place an option order.
-        
-        Args:
-            symbol: Underlying symbol
-            expiration: Option expiration (YYYYMMDD format)
-            strike: Strike price
-            right: Call ('C') or Put ('P')
-            action: BUY or SELL
-            quantity: Number of contracts
-            orderType: MKT, LMT, etc. (default: MKT)
-            limitPrice: Limit price (required for LMT orders)
-            exchange: Exchange (default: SMART)
-            currency: Currency (default: USD)
-            
-        Returns:
-            Order confirmation with orderId
-        """
+        """Place an option order only when explicitly enabled outside the research default."""
+        if os.getenv("IBKR_ENABLE_ORDER_TOOLS", "").strip().lower() not in {"1", "true", "yes", "on"}:
+            return {
+                "error": "Order tools are disabled by default in IBKR_STOCKEVALSYS research mode",
+                "required_opt_in": "IBKR_ENABLE_ORDER_TOOLS=true",
+                "research_read_only": True,
+            }
+
         tws = ctx.request_context.lifespan_context.tws
         if not tws or not tws.is_connected():
             return {"error": "TWS client not connected"}
