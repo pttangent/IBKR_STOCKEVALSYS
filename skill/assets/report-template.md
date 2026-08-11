@@ -68,19 +68,52 @@ Show trend, momentum, support/resistance, volume limitations, and whether compre
 
 ### Options-implied risk
 
-#### Options-chain evidence
+Use [../references/options-volatility.md](../references/options-volatility.md) and [../references/gamma-structure.md](../references/gamma-structure.md). For nightly/full single-stock research, keep the options chapter in this fixed order so data quality is visible before interpretation.
 
-- Current-chain source / retrieval timestamp / data type: IBKR live, IBKR delayed/frozen, `tws-pro` last-chain, Massive historical, or yfinance fallback
-- Selected expiries / strike window / number of rows returned
+#### 1. Options data quality
+
+- Current-chain source / retrieval timestamp / data type: IBKR live, IBKR delayed/frozen, `tws-pro` last-chain, Massive historical, or yfinance research chain
+- Selected expiries / strike mode (`full_expiry` or bounded ATM) / number of rows returned
 - Spot `S` and provenance; disclose any substitution for a stale or premarket `_ref_price`
 - Quote coverage: bid/ask rows, last-only rows, open-interest rows, Greeks rows; explicitly list missing fields
+- Gamma inputs: rows with usable IV/gamma, rows with OI, rows with both gamma+OI, `gamma_oi_coverage_ratio`, and whether full-chain acquisition was requested
+- Staleness, zero/crossed quotes, invalid contract combinations, wide spreads, missing expiries, event-date, and cross-source conflict flags
+- Evidence grade: `A` executable/timestamped quote, `B` timestamped last/aggregate with model IV, `C` historical/research fallback, `D` discovery-only or materially incomplete gamma/OI coverage
+
+#### 2. Implied volatility and expected move
+
 - ATM last-price IV: numerical Black-Scholes inversion, with option type, expiry, `T`, and price source
 - ATM straddle diagnostic: `straddle / S * sqrt(pi / (2T))`; label as approximation, not executable IV
 - Front/back comparison using total variance `sigma^2*T`; do not compare raw IVs without accounting for `T`
 - Skew: 25-delta when delta exists, otherwise documented log-moneyness proxy; state if only a narrow strike slice is available
 - Volume/OI ratios as activity distribution only; never infer buy/sell or opening/closing direction
-- Staleness, zero/crossed quotes, invalid contract combinations, wide spreads, missing expiries, event-date, and cross-source conflict flags
-- Evidence grade: `A` executable/timestamped quote, `B` timestamped last/aggregate with model IV, `C` historical/fallback, `D` discovery-only
+
+#### 3. Gamma structure
+
+Run `scripts/options_gamma_structure.py` on the reconciled/provider option packet when IV and OI coverage permit it.
+
+Report:
+
+- largest upper and lower **gross gamma concentrations** and distance from spot;
+- top gamma concentrations by strike and selected expiry coverage;
+- gross gamma notional for a 1% spot move, including the near-spot band (default ±3%);
+- call/put OI observed at those strikes and OI coverage;
+- `gross_gamma_notional_per_1pct_spot = gamma * OI * 100 * S^2 * 0.01` as an unsigned hedge-sensitivity proxy.
+
+Do not rename this output `dealer GEX`. Do not call an upper concentration resistance or a lower concentration support unless independent price/flow evidence supports that interpretation.
+
+#### 4. Dealer-hedging scenarios
+
+If dealer position sign is not independently observed/inferred, show both bounding cases and mark them `ASSUMPTION_ONLY`:
+
+- dealer short gamma -> potentially procyclical hedge flow;
+- dealer long gamma -> potentially countercyclical hedge flow.
+
+`gamma_flip` must be `UNAVAILABLE_WITHOUT_POSITION_SIGN` unless a documented signed-exposure model exists. A `gamma squeeze` is `CONDITIONAL_ONLY`, not a fact inferred from OI or gamma concentration alone.
+
+#### 5. Technical + gamma confluence
+
+Compare gamma concentrations with technical support/resistance, VWAP, intraday volume/activity acceleration, and price response. Highlight coincident levels as **confluence / attention zones**, not mechanical support/resistance. If intraday analysis reuses prior-close OI/IV with live spot, label the output `STATIC_GAMMA_MAP` and show separate `oi_as_of`, `iv_as_of`, and `spot_as_of` timestamps.
 
 ### Backtest / historical validation
 
