@@ -24,6 +24,31 @@ def median(values):
     return statistics.median(values) if values else None
 
 
+def observed_sum(rows, key):
+    values = [num(row.get(key)) for row in rows]
+    observed = [value for value in values if value is not None]
+    return sum(observed) if observed else None
+
+
+def field_coverage(rows, key):
+    total = len(rows)
+    present = sum(1 for row in rows if num(row.get(key)) is not None)
+    return {
+        "rows": total,
+        "present": present,
+        "missing": total - present,
+        "coverage_ratio": present / total if total else None,
+    }
+
+
+def complete_sum(rows, key):
+    """Return a sum only when every row has the field; missing never becomes zero."""
+    coverage = field_coverage(rows, key)
+    if not rows or coverage["present"] != coverage["rows"]:
+        return None
+    return observed_sum(rows, key)
+
+
 def expiry_years(expiry, as_of):
     try:
         text = str(expiry).replace("-", "")
@@ -94,10 +119,16 @@ def summarize(packet, as_of=None):
         for row in rows:
             row["last_iv_model"] = implied_vol(row.get("last"), spot, num(row.get("strike")), years, row.get("type")) if years and spot else None
         last_ivs = [x.get("last_iv_model") for x in rows if x.get("last_iv_model") is not None and x.get("last_iv_model") < 5]
-        volume_calls = sum(num(x.get("volume")) or 0 for x in calls)
-        volume_puts = sum(num(x.get("volume")) or 0 for x in puts)
-        oi_calls = sum(num(x.get("open_interest")) or 0 for x in calls)
-        oi_puts = sum(num(x.get("open_interest")) or 0 for x in puts)
+        volume_calls = observed_sum(calls, "volume")
+        volume_puts = observed_sum(puts, "volume")
+        call_volume_coverage = field_coverage(calls, "volume")
+        put_volume_coverage = field_coverage(puts, "volume")
+        call_oi_observed = observed_sum(calls, "open_interest")
+        put_oi_observed = observed_sum(puts, "open_interest")
+        call_oi_coverage = field_coverage(calls, "open_interest")
+        put_oi_coverage = field_coverage(puts, "open_interest")
+        oi_calls = complete_sum(calls, "open_interest")
+        oi_puts = complete_sum(puts, "open_interest")
         spreads = [((num(x["ask"]) - num(x["bid"])) / ((num(x["ask"]) + num(x["bid"])) / 2)) for x in quote_rows
                    if (num(x["ask"]) + num(x["bid"])) > 0]
         atm_straddles = []
@@ -130,9 +161,14 @@ def summarize(packet, as_of=None):
                                 "total_variance": reference_iv * reference_iv * years if reference_iv and years else None,
                                 "years_to_expiry": years,
                                 "call_volume": volume_calls, "put_volume": volume_puts,
-                                "put_call_volume_ratio": volume_puts / volume_calls if volume_calls else None,
+                                "call_volume_coverage": call_volume_coverage, "put_volume_coverage": put_volume_coverage,
+                                "put_call_volume_ratio": volume_puts / volume_calls if volume_calls not in (None, 0) and volume_puts is not None else None,
                                 "call_open_interest": oi_calls, "put_open_interest": oi_puts,
-                                "put_call_oi_ratio": oi_puts / oi_calls if oi_calls else None,
+                                "call_open_interest_observed_sum": call_oi_observed,
+                                "put_open_interest_observed_sum": put_oi_observed,
+                                "call_open_interest_coverage": call_oi_coverage,
+                                "put_open_interest_coverage": put_oi_coverage,
+                                "put_call_oi_ratio": oi_puts / oi_calls if oi_calls not in (None, 0) and oi_puts is not None else None,
                                 "median_relative_spread": median(spreads), "atm_straddle": atm,
                                 "otm_5pct_put_iv_last_model": otm_put.get("last_iv_model") if otm_put else None,
                                 "otm_5pct_put_strike": otm_put.get("strike") if otm_put else None,
@@ -152,6 +188,7 @@ def summarize(packet, as_of=None):
             "expiry_features": expiry_features, "term_structure": term,
             "market_data_type_counts": {str(kind): sum(1 for row in options if str(row.get("market_data_type")) == str(kind)) for kind in sorted({row.get("market_data_type") for row in options})},
             "warnings": ["put/call volume and open interest are activity distributions, not buy/sell or opening/closing direction",
+                         "missing volume/open_interest stays missing; observed sums are separate and complete totals are null unless coverage is 100%",
                          "modelGreeks/IV must be separated from market-quoted IV when bid/ask is absent or stale",
                          "last_iv_model_median is a European Black-Scholes approximation from last price; American exercise, dividends, rates, and stale last trades can bias it",
                          "atm_straddle_approx_iv is a diagnostic approximation, not a full implied-volatility surface",
