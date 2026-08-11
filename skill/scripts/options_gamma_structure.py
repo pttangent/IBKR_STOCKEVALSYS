@@ -42,15 +42,17 @@ def summarize(packet: dict, as_of: str | None = None, near_pct: float = 0.03) ->
     spot = num(packet.get("spot"))
     as_of = as_of or packet.get("as_of") or str(packet.get("retrieved_at", ""))[:10]
     if not options:
-        return {"status": "unavailable", "reason": "no option rows", "symbol": packet.get("symbol")}
+        return {"status": "unavailable", "gamma_status": "UNAVAILABLE_NO_OPTION_ROWS", "reason": "no option rows", "symbol": packet.get("symbol")}
     if spot is None or spot <= 0:
-        return {"status": "unavailable", "reason": "valid spot required", "symbol": packet.get("symbol")}
+        return {"status": "unavailable", "gamma_status": "UNAVAILABLE_INVALID_SPOT", "reason": "valid spot required", "symbol": packet.get("symbol")}
 
     rows_out = []
     eligible_rows = 0
     gamma_rows = 0
     oi_rows = 0
+    positive_oi_rows = 0
     gamma_oi_rows = 0
+    positive_gamma_oi_rows = 0
     iv_source_counts = defaultdict(int)
 
     for row in options:
@@ -68,12 +70,16 @@ def summarize(packet: dict, as_of: str | None = None, near_pct: float = 0.03) ->
             iv_source_counts[iv_source] += 1
         if oi is not None:
             oi_rows += 1
+            if oi > 0:
+                positive_oi_rows += 1
         gross_shares_1pct = None
         gross_notional_1pct = None
         if gamma is not None and oi is not None and oi >= 0:
             gamma_oi_rows += 1
             gross_shares_1pct = gamma * oi * 100.0 * (0.01 * spot)
             gross_notional_1pct = gross_shares_1pct * spot
+            if oi > 0 and gross_notional_1pct > 0:
+                positive_gamma_oi_rows += 1
         rows_out.append({
             "expiry": row.get("expiry"),
             "strike": strike,
@@ -126,35 +132,46 @@ def summarize(packet: dict, as_of: str | None = None, near_pct: float = 0.03) ->
             "gamma_oi_rows": bucket["gamma_oi_rows"],
         })
 
-    usable_strikes = [x for x in strikes if x["total_gross_gamma_notional_per_1pct_spot"] is not None]
-    ranked = sorted(usable_strikes, key=lambda x: x["total_gross_gamma_notional_per_1pct_spot"], reverse=True)
-    upper = [x for x in usable_strikes if x["strike"] >= spot]
-    lower = [x for x in usable_strikes if x["strike"] <= spot]
+    computable_strikes = [x for x in strikes if x["total_gross_gamma_notional_per_1pct_spot"] is not None]
+    positive_strikes = [x for x in computable_strikes if x["total_gross_gamma_notional_per_1pct_spot"] > 0]
+    ranked = sorted(positive_strikes, key=lambda x: x["total_gross_gamma_notional_per_1pct_spot"], reverse=True)
+    upper = [x for x in positive_strikes if x["strike"] >= spot]
+    lower = [x for x in positive_strikes if x["strike"] <= spot]
     largest_upper = max(upper, key=lambda x: x["total_gross_gamma_notional_per_1pct_spot"], default=None)
     largest_lower = max(lower, key=lambda x: x["total_gross_gamma_notional_per_1pct_spot"], default=None)
-    near = [x for x in usable_strikes if abs(x["distance_pct"]) <= near_pct]
+    near = [x for x in positive_strikes if abs(x["distance_pct"]) <= near_pct]
     gross_near = sum(x["total_gross_gamma_notional_per_1pct_spot"] for x in near) if near else None
-    gross_total = sum(x["total_gross_gamma_notional_per_1pct_spot"] for x in usable_strikes) if usable_strikes else None
+    gross_total = sum(x["total_gross_gamma_notional_per_1pct_spot"] for x in positive_strikes) if positive_strikes else None
 
     data_quality = {
         "eligible_rows": eligible_rows,
         "rows_with_iv_and_gamma": gamma_rows,
         "rows_with_open_interest": oi_rows,
+        "rows_with_positive_open_interest": positive_oi_rows,
         "rows_with_gamma_and_open_interest": gamma_oi_rows,
+        "rows_with_positive_gamma_and_open_interest": positive_gamma_oi_rows,
+        "computable_strikes": len(computable_strikes),
+        "positive_gamma_strikes": len(positive_strikes),
         "gamma_coverage_ratio": ratio(gamma_rows, eligible_rows),
         "oi_coverage_ratio": ratio(oi_rows, eligible_rows),
         "gamma_oi_coverage_ratio": ratio(gamma_oi_rows, eligible_rows),
+        "positive_oi_ratio": ratio(positive_oi_rows, eligible_rows),
         "iv_source_counts": dict(iv_source_counts),
         "full_chain_requested": bool(packet.get("request", {}).get("full_chain")),
     }
     coverage = data_quality["gamma_oi_coverage_ratio"] or 0.0
-    if packet.get("provider") == "yfinance":
+    if not positive_strikes:
+        evidence_grade = "D"
+        gamma_status = "UNAVAILABLE_ZERO_OR_UNTRUSTED_OI"
+    elif packet.get("provider") == "yfinance":
         evidence_grade = "C" if coverage >= 0.9 and data_quality["full_chain_requested"] else "D"
+        gamma_status = "AVAILABLE_GROSS_ONLY"
     else:
         evidence_grade = "C" if coverage >= 0.8 else "D"
+        gamma_status = "AVAILABLE_GROSS_ONLY"
 
     signed_scenarios = None
-    if gross_total is not None:
+    if gross_total is not None and gross_total > 0:
         signed_scenarios = {
             "status": "ASSUMPTION_ONLY",
             "dealer_short_gamma_all_observed_oi": {
@@ -169,7 +186,8 @@ def summarize(packet: dict, as_of: str | None = None, near_pct: float = 0.03) ->
         }
 
     return {
-        "status": "ok" if usable_strikes else "partial",
+        "status": "ok" if positive_strikes else "partial",
+        "gamma_status": gamma_status,
         "symbol": packet.get("symbol"),
         "provider": packet.get("provider"),
         "as_of": as_of,
@@ -198,7 +216,7 @@ def summarize(packet: dict, as_of: str | None = None, near_pct: float = 0.03) ->
             "reason": "A gamma flip requires a defensible signed dealer-exposure model; gross OI-weighted gamma cannot identify the sign transition.",
         },
         "squeeze_risk": {
-            "status": "CONDITIONAL_ONLY",
+            "status": "CONDITIONAL_ONLY" if positive_strikes else "UNAVAILABLE_WITHOUT_POSITIVE_GAMMA_STRUCTURE",
             "required_conditions": [
                 "spot approaches a high gross-gamma concentration",
                 "dealer/customer position sign is independently inferred or explicitly assumed",
@@ -209,7 +227,8 @@ def summarize(packet: dict, as_of: str | None = None, near_pct: float = 0.03) ->
         },
         "warnings": [
             "Open interest is not directional and does not identify dealer versus customer ownership.",
-            "Missing open interest remains missing; gross totals are observed-coverage totals and must be read with gamma_oi_coverage_ratio.",
+            "Missing open interest remains missing; zero OI is not promoted to a Gamma wall or concentration.",
+            "Gross totals are observed-coverage totals and must be read with gamma_oi_coverage_ratio and positive_oi_ratio.",
             "Provider IV from yfinance can be stale; last-price inversion can be distorted by stale prints, spreads, dividends, rates, and American exercise.",
             "Use --full-chain for nightly concentration scans; bounded ATM slices can miss distant OI/gamma clusters.",
         ],
@@ -226,8 +245,8 @@ def main():
     packet = json.loads(Path(args.options).read_text(encoding="utf-8"))
     result = summarize(packet, args.as_of, args.near_pct)
     Path(args.out).write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps({"written": args.out, "status": result.get("status"), "symbol": result.get("symbol"),
-                      "grade": result.get("evidence_grade")}, ensure_ascii=False))
+    print(json.dumps({"written": args.out, "status": result.get("status"), "gamma_status": result.get("gamma_status"),
+                      "symbol": result.get("symbol"), "grade": result.get("evidence_grade")}, ensure_ascii=False))
 
 
 if __name__ == "__main__":
