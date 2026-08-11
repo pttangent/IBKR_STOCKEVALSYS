@@ -9,6 +9,7 @@ This repository contains the current `stock-eval-system` skill plus the project-
 ```text
 skill/       Evidence-backed research skill, deterministic engine, provider adapters
 ibkr-mcp/    Project-local IBKR/TWS MCP server, tests, news and options tools
+docs/        Versioned documentation and compact HTML output examples
 .env.example Shared research and TWS configuration template (no secrets)
 ```
 
@@ -32,9 +33,7 @@ IBKR market/options + SEC + IR + FRED/ALFRED + IBKR News + consensus
                               |
                   scenarios / risk state
                               |
-                    report_manifest.json
-                        /           \
-                  Markdown        HTML
+                 report manifest / HTML
 ```
 
 Reviewers are not allowed to browse independently. They may only cite the frozen evidence packet or emit a structured evidence request.
@@ -48,12 +47,11 @@ Reviewers are not allowed to browse independently. They may only cite the frozen
 - Polymarket public-search adapter for optional market-implied event context.
 - Project-local IBKR MCP with qualified-underlying option-chain discovery, historical option bars, qualified historical news retrieval, explicit news time windows, and read-only research workflows.
 - IBKR News normalizer that consumes the MCP output and preserves provider, timestamp, article ID, and body availability.
-- Evidence-packet, claim-graph, review, and arbitration schemas plus cross-artifact validation.
+- Evidence-packet, claim-graph, review, arbitration, and report-manifest schemas plus cross-artifact validation.
 - Bull / Bear / Skeptic / Arbiter operating contracts in the skill references.
 - Structured decision/outcome SQLite memory with multiclass Brier calibration before any narrative reflection.
-- Report-output governance distilled from real evidence/report audits: freshness barrier, primary-source priority, missing-not-zero, exact research-state/Kelly labels, intraday evidence gate, and Gamma/OI suppression rules.
-- Modular standalone HTML renderer for full reports or selected modules, with charts generated from structured run artifacts rather than prose.
-- `report_manifest.json` schema/template plus a lightweight invariant validator so Markdown and HTML can share one machine-readable report contract.
+- Modular rich HTML renderer with full-report and module-only output.
+- Options Gamma structure that remains unsigned unless dealer/customer position sign is independently inferred; zero/untrusted OI cannot manufacture a Gamma Wall.
 
 ## Quick start
 
@@ -88,33 +86,32 @@ python skill/scripts/build_evidence_packet.py --symbol NVDA --as-of 2026-08-07 \
   --source runs/NVDA/consensus.json --output runs/NVDA/evidence.json
 ```
 
-## Modular HTML reports
+## Rich HTML reports
 
-Install the renderer-only dependencies in the environment used for report generation:
-
-```bash
-pip install -r skill/requirements-html.txt
-```
-
-Render a full standalone HTML report from a Markdown narrative plus the structured run directory:
+The canonical renderer is `skill/scripts/render_html_report.py`. It can emit either the complete research report or one or more independent modules such as `technical`, `options`, or `risk`.
 
 ```bash
+# Full HTML
 python skill/scripts/render_html_report.py \
-  --report NVDA_complete_report.md \
+  --report runs/NVDA/NVDA_complete_report.md \
   --run-dir runs/NVDA \
-  --output NVDA_complete_report.html
+  --output runs/NVDA/NVDA_complete_report.html
+
+# Options-only HTML
+python skill/scripts/render_html_report.py \
+  --report runs/NVDA/NVDA_complete_report.md \
+  --run-dir runs/NVDA \
+  --output runs/NVDA/NVDA_options.html \
+  --modules options
 ```
 
-Render only one module, or a selected set of modules:
+Versioned examples are under [`docs/examples/html/`](docs/examples/html/):
 
-```bash
-python skill/scripts/render_html_report.py --report NVDA_complete_report.md --run-dir runs/NVDA --output NVDA_options.html --modules options
-python skill/scripts/render_html_report.py --report NVDA_complete_report.md --run-dir runs/NVDA --output NVDA_tactical.html --modules technical,options,risk
-```
+- [`GEV_full_example.html`](docs/examples/html/GEV_full_example.html) — compact full-report example.
+- [`XE_technical_example.html`](docs/examples/html/XE_technical_example.html) — technical-only example.
+- [`XE_options_example.html`](docs/examples/html/XE_options_example.html) — options-only example with zero-OI Gamma suppression.
 
-Supported modules are `overview,fundamentals,valuation,technical,options,governance,risk,scenarios,evidence`.
-
-The renderer embeds Plotly JS in the output so the generated file is standalone. It suppresses unavailable Gamma charts when OI/Gamma evidence is missing or economically zero, and it does not promote missing fields to zero. For the full output-quality contract, read `skill/references/report-quality-and-html.md`. For the machine-readable output contract, use `skill/schemas/report-manifest.schema.json` and `skill/assets/report-manifest-template.json`; validate high-value invariants with `skill/scripts/validate_report_manifest.py`.
+The normal renderer embeds Plotly so generated reports are standalone/offline. The Git-versioned examples use the Plotly CDN only to avoid duplicating several megabytes of library JavaScript per example.
 
 For provider setup and exact source roles, read `skill/references/provider-setup.md`. For the adversarial-review contract, read `skill/references/adversarial-review.md`. For the P3 calibration loop, read `skill/references/decision-memory.md`.
 
