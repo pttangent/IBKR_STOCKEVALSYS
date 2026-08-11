@@ -85,6 +85,8 @@ python skill/scripts/build_evidence_packet.py --symbol NVDA --as-of 2026-08-07 \
 
 For provider setup and exact source roles, read `skill/references/provider-setup.md`. For the adversarial-review contract, read `skill/references/adversarial-review.md`. For the P3 calibration loop, read `skill/references/decision-memory.md`.
 
+The free-tier, entitlement, pacing, fallback, and especially options-data boundaries are documented in [`limitation.md`](limitation.md). Read it before interpreting a missing chain, empty bar response, IV estimate, or microstructure signal.
+
 The MCP-specific setup, tool inventory, and news/streaming notes are in `ibkr-mcp/README.md`, `ibkr-mcp/docs/SETUP.md`, `ibkr-mcp/docs/NEWS.md`, and `ibkr-mcp/docs/TOOLS.md`.
 
 ## Safety boundary
