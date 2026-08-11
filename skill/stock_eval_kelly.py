@@ -219,3 +219,4 @@ def kelly_analysis(backtest: dict[str, Any], options: dict[str, Any] | None = No
             "applied_to_position": fractional_fraction is not None,
             "sizing_decision": "apply_validated_fractional_kelly_as_cap" if fractional_fraction is not None else "show_diagnostic_use_fixed_risk_by_default",
             "limitations": limitations}
+

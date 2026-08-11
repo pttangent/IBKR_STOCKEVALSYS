@@ -2,10 +2,17 @@ from pathlib import Path
 import tempfile
 import sys
 import unittest
+import importlib.util
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-from research_memory import calibration_summary, connect, record_decision, record_outcome
+_spec = importlib.util.spec_from_file_location("canonical_research_memory", ROOT / "research_memory.py")
+_module = importlib.util.module_from_spec(_spec)
+assert _spec.loader is not None
+_spec.loader.exec_module(_module)
+calibration_summary = _module.calibration_summary
+connect = _module.connect
+record_decision = _module.record_decision
+record_outcome = _module.record_outcome
 
 
 class ResearchMemoryTests(unittest.TestCase):

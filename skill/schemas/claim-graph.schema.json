@@ -1,31 +1,35 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "StockEval Claim Graph",
+  "title": "Stock Evaluation Claim Graph",
   "type": "object",
-  "required": ["schema_version", "symbol", "as_of", "evidence_freeze_hash", "claims"],
+  "required": ["run_id", "symbol", "as_of", "claims"],
   "properties": {
-    "schema_version": {"const": "1.0"},
-    "symbol": {"type": "string"},
-    "as_of": {"type": "string"},
-    "evidence_freeze_hash": {"type": "string"},
+    "run_id": {"type": "string", "minLength": 1},
+    "symbol": {"type": "string", "minLength": 1},
+    "as_of": {"type": "string", "minLength": 1},
+    "evidence_cutoff": {"type": ["string", "null"]},
     "claims": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["claim_id", "label", "claim", "direction", "horizon", "evidence_refs"],
+        "required": ["claim_id", "statement", "claim_type", "horizon", "direction", "status", "supporting_evidence_ids", "counterevidence_ids", "depends_on", "invalidation_conditions"],
         "properties": {
-          "claim_id": {"type": "string"},
-          "label": {"enum": ["FACT", "DATA_RESULT", "MODEL_OUTPUT", "INFERENCE", "ASSUMPTION", "UNVERIFIED"]},
-          "claim": {"type": "string"},
-          "direction": {"enum": ["positive", "negative", "neutral", "mixed", "unknown"]},
-          "horizon": {"type": "string"},
-          "evidence_refs": {"type": "array", "items": {"type": "string"}},
-          "depends_on": {"type": "array", "items": {"type": "string"}},
-          "counterevidence": {"type": "array", "items": {"type": "string"}},
-          "invalidation": {"type": "array", "items": {"type": "string"}},
-          "confidence": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
-        }
+          "claim_id": {"type": "string", "minLength": 1},
+          "statement": {"type": "string", "minLength": 1},
+          "claim_type": {"enum": ["FACT", "DATA_RESULT", "MODEL_OUTPUT", "INFERENCE", "ASSUMPTION", "UNVERIFIED"]},
+          "horizon": {"type": "string", "minLength": 1},
+          "direction": {"enum": ["positive", "negative", "neutral", "mixed"]},
+          "status": {"enum": ["supported", "contested", "unresolved", "invalidated"]},
+          "confidence": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+          "supporting_evidence_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "counterevidence_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "depends_on": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "invalidation_conditions": {"type": "array", "items": {"type": "string"}},
+          "notes": {"type": "string"}
+        },
+        "additionalProperties": true
       }
     }
-  }
+  },
+  "additionalProperties": true
 }

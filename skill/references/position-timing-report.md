@@ -66,6 +66,8 @@ For every stop and target level, show per-share and account-level dollar P/L usi
 | Level | Type | Price | Per-share P/L | Allowed amount | Exact fractional shares | Dollar P/L | Integer-share comparison | R:R / eligibility |
 |---|---|---:|---:|---:|---:|---:|---:|---|
 
+Every setup must label three stop layers when the technical data support them: `S1` near/tactical stop, `S2` primary structural stop, and `S3` deeper trend-failure stop. Explain which layer is the default and show the dollar loss for all three. A single stop may be used only when the data genuinely provide only one defensible invalidation level.
+
 Use `loss = (entry - stop) * shares`, `profit = (target - entry) * shares`, and `R:R = profit / loss` for the paired stop. Mark a quantity as `risk_cap_exceeded` when its stop loss exceeds the declared fixed-risk budget. Do not call a technical level a guaranteed stop; gap risk may bypass it.
 
 ## Required short-term section

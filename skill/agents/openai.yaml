@@ -1,4 +1,4 @@
 interface:
   display_name: "Stock Evaluation System"
-  short_description: "Evidence-backed single-stock research"
-  default_prompt: "Use $stock-eval-system to analyze a listed stock with sourced data, reproducible calculations, and explicit risk limits."
+  short_description: "Evidence-backed, adversarially reviewed single-stock research"
+  default_prompt: "Use $stock-eval-system to analyze a listed stock with point-in-time evidence, reproducible calculations, a Claim Graph, Bull/Bear/Skeptic review when underwriting is requested, explicit risk limits, and no automatic order execution."

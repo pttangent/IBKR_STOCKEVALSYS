@@ -19,16 +19,20 @@ Never collapse these labels in prose. A report should make the chain visible:
 
 ## Reusable pipeline
 
-1. Acquire raw packets without interpretation. Record `as_of`, provider, endpoint/tool, session, timestamp, quote type, and missing fields.
-2. Normalize symbols, dates, currency, adjusted/unadjusted status, option keys, and source quality.
-3. Calculate deterministic features from the normalized packets.
-4. Generate independent technical, fundamental, options, and risk signals. Do not let one module overwrite another.
-5. Build at least four scenarios for every material inference: `base`, `bull`, `bear`, and `invalidated/unknown`. Add an `event` scenario when a dated catalyst can change the distribution.
-6. Assign probabilities only as labeled assumptions. Make them sum to 100% and explain the evidence that moves probability between cases.
-7. Fuse modules with configurable weights or a transparent scorecard. Do not use a universal fixed weight or map a score mechanically to BUY/HOLD/SELL.
-8. Convert the result into conditional actions: entry/add, wait, trim, exit, or collect more evidence. State the trigger and the invalidation condition.
-9. Run a backtest or historical validation when a rule is claimed to have an edge. Separate full-sample and out-of-sample results and disclose window-selection bias.
-10. Apply risk caps after the model output: fixed-risk budget, tail-loss cap, concentration cap, and event haircut. The smallest cap binds.
+1. Acquire raw packets without interpretation. Record `as_of`, provider, endpoint/tool, session, publication/observation time, retrieval/received time, quote type, and missing fields.
+2. Normalize symbols, dates, currency, adjusted/unadjusted status, option keys, source quality, and evidence IDs.
+3. **Freeze the evidence set** for the run. In a historical run, exclude anything not observable by the evidence cutoff. Reviewers do not independently reacquire data after this point.
+4. Calculate deterministic features from the normalized packets.
+5. Generate independent technical, fundamental, valuation, options, catalyst/macro/expectation, and risk signals. Do not let one module overwrite another.
+6. Convert material conclusions into a **Claim Graph** using `FACT`, `DATA_RESULT`, `MODEL_OUTPUT`, `INFERENCE`, `ASSUMPTION`, or `UNVERIFIED`, with supporting/counterevidence IDs and invalidation conditions.
+7. Build at least four scenarios: `base`, `bull`, `bear`, and `invalidated/unknown`. Add an `event` scenario when a dated catalyst can change the distribution.
+8. Assign probabilities only as labeled assumptions. Make them sum to 100% and keep a change log showing which evidence/claim moved each scenario.
+9. For `full-research` or thesis underwriting, run the constrained **Bull / Bear / Skeptic** review passes from `distilled-research-governance.md` against the same frozen Claim Graph. Reviewers may request evidence but may not silently fetch new sources.
+10. Run the **Research Arbiter**. It may strengthen/weaken/leave unresolved existing claims and scenarios, but it cannot create facts. Output a research state such as `READY_CONDITIONAL`, `WAIT_CONFIRMATION`, `NEEDS_EVIDENCE`, `RISK_BLOCKED`, `MONITOR_ONLY`, or `THESIS_INVALIDATED` rather than a mechanical BUY/HOLD/SELL label.
+11. Convert the result into conditional actions: entry/add, wait, trim, exit, or collect more evidence. State the trigger and the invalidation condition.
+12. Run a backtest or historical validation when a rule is claimed to have an edge. Separate full-sample and out-of-sample results and disclose window-selection bias.
+13. Apply risk caps after thesis arbitration: fixed-risk budget, tail-loss cap, concentration cap, liquidity constraints, and event haircut. The smallest cap binds.
+14. When decision memory is enabled, freeze the ex-ante decision record before outcomes are known; attach realized outcomes later and compute calibration before writing a reusable reflection.
 
 ## Technical inference template
 
@@ -144,8 +148,11 @@ Use a minimum of four cases. Add scenario-specific probabilities only after docu
 
 ## Quality checks
 
+- For full research, validate that material thesis claims exist in the Claim Graph and that Bull/Bear/Skeptic reviews refer only to known claim/evidence IDs.
 - Include at least one counterevidence paragraph for each positive thesis.
 - Include at least one path where the signal fails without requiring a catastrophic event.
 - Explain what would change the score or position, rather than presenting a static verdict.
 - Keep provider limitations in the conclusion, not only in an appendix.
+- Treat consensus, Polymarket, FINRA short-sale volume, and Stocktwits as role-specific context; do not upgrade them into primary facts.
+- In historical evaluation, use ALFRED/vintage macro and historical consensus/news when available; otherwise mark the affected module PIT-unavailable.
 - Never reuse a VST example number for another ticker.

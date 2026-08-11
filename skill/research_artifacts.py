@@ -170,3 +170,4 @@ def validate_arbitration(
         if unknown:
             errors.append(f"claim_adjustments[{idx}] uses evidence outside freeze: {unknown}")
     return errors
+

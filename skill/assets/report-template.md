@@ -3,63 +3,64 @@
 ## Research posture
 
 - As-of: {{AS_OF}}
+- Evidence cutoff: {{EVIDENCE_CUTOFF}}
 - Price timestamp / provider: {{PRICE_STATUS}}
 - Filings cutoff: {{FILINGS_CUTOFF}}
 - Evidence completeness: {{EVIDENCE_COMPLETENESS}}
-- Evidence freeze: {{EVIDENCE_FREEZE_HASH}}
-- Underwriting status: preliminary / watchlist / ready for deeper work
+- Research state: `RESEARCH_READY` / `READY_CONDITIONAL` / `WAIT_CONFIRMATION` / `NEEDS_EVIDENCE` / `RISK_BLOCKED` / `MONITOR_ONLY` / `THESIS_INVALIDATED`
 - Primary horizon: {{HORIZON}}
 - Data limitations: {{LIMITATIONS}}
 
-## Thesis and debate
+## Thesis and variant perception
 
 **Thesis:** {{THESIS}}
 
-**Variant perception / what is priced in:** {{VARIANT}}
+**Variant perception / what may be mispriced:** {{VARIANT}}
+
+**What the market appears to expect:** {{EXPECTATIONS}}
 
 **Key evidence:** {{EVIDENCE}}
 
 **Invalidation:** {{INVALIDATION}}
 
-## Catalyst, macro, and expectations context
+## What changed since the prior evaluation
 
-- What changed since the previous evaluation: {{DELTA_SINCE_PREVIOUS}}
-- Company / sector catalysts: {{CATALYSTS}}
-- Macro transmission channels and selected FRED/ALFRED evidence: {{MACRO_CONTEXT}}
-- Company guidance vs consensus vs internal model: {{EXPECTATION_GAP}}
-- Optional prediction-market context: {{PREDICTION_MARKET_CONTEXT}}
+If no prior evaluation exists, say so. Otherwise lead with the delta rather than repeating the old report.
 
-Do not include a current consensus, social, or prediction-market snapshot in historical replay unless its availability at the research cutoff is proven.
+| New/changed item | Source/evidence ID | Claim affected | Direction | Materiality | Prior view -> updated view | PIT-safe? |
+|---|---|---|---|---|---|---|
 
-## Adversarial review and arbitration
+## Catalyst, macro, and expectation context
 
-### Bull review
-{{BULL_REVIEW}}
+### Company and scheduled catalysts
 
-### Bear review
-{{BEAR_REVIEW}}
+Separate reported company events from scheduled events and third-party commentary.
 
-### Skeptic / methodology review
-{{SKEPTIC_REVIEW}}
+### Industry read-through
 
-### Research Arbiter
+Include only industry/competitor evidence with a stated causal link to the company thesis.
 
-- Thesis state: {{THESIS_STATE}}
-- Material claim changes: {{CLAIM_ADJUSTMENTS}}
-- Scenario probability changes and reasons: {{SCENARIO_ADJUSTMENTS}}
-- Unresolved evidence requests: {{EVIDENCE_REQUESTS}}
+### Macro exposure map
 
-The reviewers and Arbiter may cite only source IDs in the frozen evidence packet. A missing source must remain a request or `UNVERIFIED`; do not fill it from memory.
+Show the company exposure, the selected FRED/ALFRED series, why it matters, and whether the current/vintage value supports or weakens the thesis.
+
+### Consensus and revisions
+
+Keep management guidance, Street consensus, and the internal model separate. Prefer revision direction/dispersion over a point estimate alone.
+
+### Insider / market-implied / crowding context
+
+Treat SEC Form 4, Polymarket, FINRA Reg SHO, and Stocktwits according to their evidence roles. Do not call FINRA short-sale volume short interest; do not call social attention a fundamental fact.
 
 ## Module results
 
 ### Business and fundamentals
 
-Separate reported facts, estimates, derived metrics, and interpretation. Include sector KPIs, capital intensity, leverage, capital allocation, and source IDs.
+Separate reported facts, company claims, Street estimates, derived metrics, and interpretation. Include sector KPIs, capital intensity, leverage, capital allocation, and source IDs.
 
 ### Valuation
 
-Show current price/EV inputs, method, forecast period, scenarios, and sensitivity. Mark missing share count, debt, lease, or consensus inputs as `needs_source`.
+Show current price/EV inputs, method, forecast period, scenarios, and sensitivity. Mark missing share count, debt, lease, or consensus inputs as `UNVERIFIED`/`needs_source`. Explicitly compare internal model, Street consensus, management guidance, and current market price when inputs exist.
 
 ### Technical setup
 
@@ -81,6 +82,65 @@ Show trend, momentum, support/resistance, volume limitations, and whether compre
 - Staleness, zero/crossed quotes, invalid contract combinations, wide spreads, missing expiries, event-date, and cross-source conflict flags
 - Evidence grade: `A` executable/timestamped quote, `B` timestamped last/aggregate with model IV, `C` historical/fallback, `D` discovery-only
 
+### Backtest / historical validation
+
+State the tested rule, window, costs, trade count, full-sample result, OOS result, regime dependence, and selection-bias limitations. Do not use a backtest to validate a different horizon or signal definition than the one actually tested.
+
+## Claim Graph summary
+
+For full research, include the material claims only; keep the complete machine-readable graph as an audit artifact.
+
+| Claim ID | Type | Horizon | Statement | Direction | Status | Confidence | Evidence / dependencies | Invalidation |
+|---|---|---|---|---|---|---:|---|---|
+
+## Adversarial review
+
+Do not write three long role-play essays. Summarize the strongest claim-level interventions.
+
+### Bull reviewer
+
+- Strongest supported upside case:
+- Underweighted evidence:
+- Claims to strengthen:
+- Evidence requests:
+
+### Bear reviewer
+
+- Strongest plausible non-catastrophic downside case:
+- Alternative explanation:
+- Expectation/valuation fragility:
+- Claims to weaken/invalidate:
+- Evidence requests:
+
+### Skeptic reviewer
+
+- PIT/timestamp problems:
+- Evidence-label violations:
+- Model/horizon mismatches:
+- Double counting / unsupported causal links:
+- Claims to mark unresolved:
+
+## Research Arbiter
+
+- Research state: {{RESEARCH_STATE}}
+- Thesis state: {{THESIS_STATE}}
+- Supported claims: {{SUPPORTED_CLAIMS}}
+- Contested claims: {{CONTESTED_CLAIMS}}
+- Unresolved claims: {{UNRESOLVED_CLAIMS}}
+- Binding evidence/risk constraint: {{BINDING_CONSTRAINT}}
+- Next evidence requests: {{NEXT_EVIDENCE}}
+
+### Scenario probability change log
+
+Numeric scenario probabilities are `ASSUMPTION` unless calibrated otherwise.
+
+| Case | Prior | Review delta | Final | Reason / claim IDs / evidence IDs |
+|---|---:|---:|---:|---|
+| Bear | | | | |
+| Base | | | | |
+| Bull | | | | |
+| Event / unknown | | | | |
+
 ### Risk plan
 
 Organize this section by horizon. For the short-horizon block, use this reader-facing order: `Today's short-horizon scenario tree` → `Entry confirmation and invalidation` → `Stop-loss / take-profit and P/L ladder` → `Short-horizon Kelly position plan`. Keep all four on the same entry, stop, target, account, and risk assumptions. Then place the long-horizon scenarios, options event-risk interpretation, and long-horizon position boundary together afterward. Show entry/stop assumption, a labeled simulation account (default $10,000 if unspecified), portfolio risk budget, concentration cap, `p`, `b`, `f_raw`, exploratory/full-sample Kelly, OOS Kelly, full Kelly, half Kelly, quarter Kelly, confidence tier, option-volatility/event haircut, known tail/fixed-risk caps, `diagnostic_fractional_kelly_cap`, `applied_fractional_kelly`, allowed dollar amount, exact fractional-share conversion, optional integer shares, binding constraint, and invalidation. If standard OOS qualification fails, the diagnostic ratio is still mandatory; label it exploratory/conditional, list the exact trade-count gap and missing cap inputs, and keep fixed-risk sizing as the default. The P/L ladder must show per-share and dollar loss/profit using the exact fractional quantity implied by the allowed amount; integer-share comparison is optional. For today's timing, include session phase, ORH/ORL, VWAP, dynamic support/resistance, conditional entry, stop, target, and no-trade criteria. Never reuse same-day opening-range levels as long-horizon stops without recomputing the position.
@@ -98,4 +158,25 @@ Every material inference must be tested against multiple paths. Use at least fou
 
 ## Source register and missing evidence
 
-List source ID, provider, URL/path, published/accessed time, period, reliability, stale flag, and notes. End with unresolved evidence requests and monitoring triggers.
+List evidence ID, source/provider, endpoint/URL/path, published/observation time, retrieved/received time, period, raw identifier, evidence role/grade, stale flag, PIT status, and notes. End with unresolved evidence requests and monitoring triggers.
+
+## Decision-memory record
+
+When decision memory is enabled, freeze this section before outcomes are known:
+
+```text
+run_id
+symbol
+as_of
+evidence_cutoff
+primary_horizon
+research_state
+scenario_probabilities
+expected_range (if estimated)
+thesis_claim_ids
+key_invalidation_conditions
+action_boundary
+benchmark
+```
+
+Do not put realized outcome or hindsight reflection in the ex-ante block. Attach those later in the P3 outcome/calibration record.

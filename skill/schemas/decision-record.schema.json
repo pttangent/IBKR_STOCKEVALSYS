@@ -1,18 +1,42 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "StockEval Decision Record",
+  "title": "Stock Evaluation Decision Record",
   "type": "object",
-  "required": ["symbol", "as_of", "evidence_freeze_hash", "thesis_state", "scenarios"],
+  "required": ["run_id", "symbol", "as_of", "primary_horizon", "research_state", "scenario_probabilities", "thesis_claim_ids", "key_invalidation_conditions"],
   "properties": {
-    "decision_id": {"type": "string"},
-    "symbol": {"type": "string"},
-    "as_of": {"type": "string"},
-    "horizon": {"type": ["string", "null"]},
-    "evidence_freeze_hash": {"type": "string"},
-    "thesis_state": {"type": "string"},
-    "scenarios": {"type": "object"},
-    "expected_range": {"type": ["array", "null"]},
-    "key_claim_ids": {"type": "array", "items": {"type": "string"}},
-    "invalidation": {"type": "array", "items": {"type": "string"}}
-  }
+    "run_id": {"type": "string", "minLength": 1},
+    "symbol": {"type": "string", "minLength": 1},
+    "as_of": {"type": "string", "minLength": 1},
+    "evidence_cutoff": {"type": ["string", "null"]},
+    "primary_horizon": {"type": "string", "minLength": 1},
+    "research_state": {"enum": ["RESEARCH_READY", "READY_CONDITIONAL", "WAIT_CONFIRMATION", "NEEDS_EVIDENCE", "RISK_BLOCKED", "MONITOR_ONLY", "THESIS_INVALIDATED"]},
+    "scenario_probabilities": {
+      "type": "object",
+      "properties": {
+        "bull": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "base": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "bear": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "unknown": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "event": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
+      },
+      "additionalProperties": false
+    },
+    "expected_range": {
+      "type": ["object", "null"],
+      "properties": {
+        "lower": {"type": "number"},
+        "upper": {"type": "number"},
+        "reference_price": {"type": ["number", "null"]}
+      },
+      "required": ["lower", "upper"],
+      "additionalProperties": true
+    },
+    "thesis_claim_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "key_invalidation_conditions": {"type": "array", "items": {"type": "string"}},
+    "action_boundary": {"type": ["string", "null"]},
+    "benchmark": {"type": ["string", "null"]},
+    "frozen_at": {"type": ["string", "null"]},
+    "outcome": {"type": ["object", "null"]}
+  },
+  "additionalProperties": true
 }

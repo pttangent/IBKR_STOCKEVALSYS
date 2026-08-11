@@ -104,3 +104,4 @@ For a material numeric company claim, default to:
 5. social/narrative sources
 
 IBKR remains primary for price, bars, options and liquidity. FRED/ALFRED remains primary for the selected official macro series. Consensus and prediction markets answer "what is expected/priced", not "what is true".
+

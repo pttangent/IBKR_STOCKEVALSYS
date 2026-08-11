@@ -1,39 +1,47 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "StockEval Research Arbitration",
+  "title": "Research Arbitration",
   "type": "object",
-  "required": ["schema_version", "evidence_freeze_hash", "thesis_state", "scenarios", "claim_adjustments", "unresolved_evidence"],
+  "required": ["run_id", "research_state", "material_supported_claims", "material_contested_claims", "material_unresolved_claims", "scenario_probabilities", "probability_change_log", "next_evidence_requests"],
   "properties": {
-    "schema_version": {"const": "1.0"},
-    "evidence_freeze_hash": {"type": "string"},
-    "thesis_state": {
-      "enum": ["READY_CONDITIONAL", "WAIT_CONFIRMATION", "NEEDS_EVIDENCE", "RISK_BLOCKED", "THESIS_INVALIDATED", "MONITOR_ONLY", "RESEARCH_READY"]
-    },
-    "scenarios": {
+    "run_id": {"type": "string", "minLength": 1},
+    "research_state": {"enum": ["RESEARCH_READY", "READY_CONDITIONAL", "WAIT_CONFIRMATION", "NEEDS_EVIDENCE", "RISK_BLOCKED", "MONITOR_ONLY", "THESIS_INVALIDATED"]},
+    "thesis_state": {"type": ["string", "null"]},
+    "material_supported_claims": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "material_contested_claims": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "material_unresolved_claims": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "scenario_probabilities": {
       "type": "object",
-      "required": ["bear", "base", "bull", "unknown"],
-      "additionalProperties": {
-        "type": "object",
-        "required": ["probability", "reason"],
-        "properties": {
-          "probability": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
-          "reason": {"type": "string"}
-        }
-      }
+      "properties": {
+        "bull": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "base": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "bear": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "unknown": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "event": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
+      },
+      "additionalProperties": false
     },
-    "claim_adjustments": {
+    "probability_change_log": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["claim_id", "decision", "reason", "evidence_refs"],
+        "required": ["scenario", "reason"],
         "properties": {
-          "claim_id": {"type": "string"},
-          "decision": {"enum": ["retain", "strengthen", "weaken", "reject", "reframe"]},
+          "scenario": {"enum": ["bull", "base", "bear", "unknown", "event"]},
+          "prior": {"type": ["number", "null"]},
+          "delta": {"type": ["number", "null"]},
+          "final": {"type": ["number", "null"]},
           "reason": {"type": "string"},
-          "evidence_refs": {"type": "array", "items": {"type": "string"}}
-        }
+          "claim_ids": {"type": "array", "items": {"type": "string"}},
+          "evidence_ids": {"type": "array", "items": {"type": "string"}}
+        },
+        "additionalProperties": true
       }
     },
-    "unresolved_evidence": {"type": "array"}
-  }
+    "confidence": {"type": ["number", "string", "null"]},
+    "binding_risk_or_evidence_constraint": {"type": ["string", "null"]},
+    "action_boundary": {"type": ["string", "null"]},
+    "next_evidence_requests": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": true
 }

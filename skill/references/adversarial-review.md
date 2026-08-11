@@ -97,3 +97,4 @@ python scripts/validate_research_artifacts.py \
 ```
 
 Add `--pit-strict` only when every source has a defensible `available_at <= as_of`. A current consensus/prediction-market packet should fail strict historical replay until it has been snapshotted or otherwise timestamp-qualified.
+

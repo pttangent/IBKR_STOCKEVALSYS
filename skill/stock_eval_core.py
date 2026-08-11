@@ -239,3 +239,4 @@ def term_structure(front_payload: Any, back_payload: Any, spot: float, as_of: st
         return {"status": "unavailable", "front": front, "back": back, "reason": "invalid comparable expiries"}
     w1, w2 = front["atm_iv"] ** 2 * ft, back["atm_iv"] ** 2 * bt
     return {"status": "ok", "front_expiry": front["front_expiry"], "back_expiry": back["front_expiry"], "front_iv": front["atm_iv"], "back_iv": back["atm_iv"], "front_total_variance": w1, "back_total_variance": w2, "forward_variance": (w2 - w1) / (bt - ft), "interpretation": "event-rich/front-loaded" if w1 / w2 > 1.15 else "normal/contango" if w1 / w2 < 0.95 else "flat"}
+

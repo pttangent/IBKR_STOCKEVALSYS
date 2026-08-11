@@ -169,3 +169,4 @@ def calibration_summary(conn: sqlite3.Connection, symbol: str | None = None) -> 
         "mean_alpha": sum(alphas) / len(alphas) if alphas else None,
         "note": "Calibration is descriptive; use comparable horizons/regimes and enough observations before treating it as skill evidence.",
     }
+

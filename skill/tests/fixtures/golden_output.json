@@ -1,0 +1,233 @@
+{
+  "symbol": "TEST",
+  "as_of": "2026-02-27",
+  "data": {
+    "bars": 41,
+    "last_price": 109.8
+  },
+  "technical": {
+    "as_of": "2026-02-27",
+    "observations": 41,
+    "last_price": 109.8,
+    "return_20d": 0.040758293838862425,
+    "return_90d": null,
+    "ma": {
+      "ema5": 108.89168271836583,
+      "ema10": 108.34419351977775,
+      "ema20": 107.29816408010733,
+      "sma50": null,
+      "sma200": null
+    },
+    "ma_alignment": {
+      "direction": "compressed/neutral",
+      "ascending_pairs": 3,
+      "descending_pairs": 0,
+      "spread_pct": 0.014512920202718594,
+      "compression": true
+    },
+    "momentum": {
+      "rsi14": 62.23265653378028,
+      "macd": 1.4128674428392571,
+      "macd_signal": 1.3574709671377752,
+      "macd_state": "bullish",
+      "bollinger": {
+        "middle": 107.19500000000001,
+        "upper": 110.44429223062501,
+        "lower": 103.945707769375
+      },
+      "atr14": 2.0853130117252197
+    },
+    "support_resistance": {
+      "supports": [
+        107.1,
+        105.8,
+        104.7,
+        106.107,
+        104.75,
+        103.393
+      ],
+      "resistances": [
+        110.5
+      ],
+      "fib_range": {
+        "high": 110.5,
+        "low": 99.0,
+        "levels": {
+          "38.2": 106.107,
+          "50.0": 104.75,
+          "61.8": 103.393
+        }
+      }
+    },
+    "close_weighted_volume_nodes": [
+      {
+        "mid": 104.7025,
+        "volume": 4980.0
+      },
+      {
+        "mid": 108.6625,
+        "volume": 4310.0
+      },
+      {
+        "mid": 107.6725,
+        "volume": 4130.0
+      },
+      {
+        "mid": 106.6825,
+        "volume": 4040.0
+      },
+      {
+        "mid": 105.6925,
+        "volume": 4030.0
+      }
+    ],
+    "volume_up_down_ratio": 1.6107011070110702,
+    "realized_vol_20d_annualized": 0.16295573572710445,
+    "limitations": [
+      "daily close-price weighted nodes are not a true intraday volume profile",
+      "RSI and MA signals are descriptive, not directional recommendations"
+    ]
+  },
+  "backtest": {
+    "status": "ok",
+    "rule": "RSI(14)<30 entry; RSI(14)>55, 10 bars, or end exit",
+    "trades": 0,
+    "win_rate": null,
+    "avg_win": null,
+    "avg_loss": null,
+    "total_return": 0,
+    "cost_bps_each_side": 5,
+    "trade_log": []
+  },
+  "options": {
+    "status": "ok",
+    "contracts": 4,
+    "expiries": [
+      "2026-03-20"
+    ],
+    "front_expiry": "2026-03-20",
+    "atm_iv": 0.371928274608109,
+    "atm_iv_status": "market_quote",
+    "atm_iv_method": "numerical_black_scholes_from_mid_or_provider_iv",
+    "atm_straddle_approximation_diagnostic": 0.3664250100500274,
+    "put_call_volume_ratio": 1.4285714285714286,
+    "put_call_oi_ratio": 1.1470588235294117,
+    "activity_distribution_only": true,
+    "quote_quality_counts": {
+      "bid_ask_mid": 4,
+      "last_fallback": 0,
+      "last_ohlcv_no_bid_ask": 0,
+      "model_only": 0,
+      "no_quote": 0
+    },
+    "front_total_variance": 0.007958749234280174,
+    "warnings": [
+      "put/call totals do not identify buy/sell or open/close direction",
+      "Greeks are not assumed when absent",
+      "wide/stale quote checks require provider timestamps"
+    ],
+    "term_structure": {
+      "status": "ok",
+      "front_expiry": "2026-03-20",
+      "back_expiry": "2026-06-19",
+      "front_iv": 0.371928274608109,
+      "back_iv": 0.2457781077643116,
+      "front_total_variance": 0.007958749234280174,
+      "back_total_variance": 0.018535809218342532,
+      "forward_variance": 0.042424471364645715,
+      "interpretation": "normal/contango"
+    }
+  },
+  "kelly": {
+    "status": "conditional_insufficient_data",
+    "method": "empirical log-growth Kelly on fixed-rule trade returns plus conservative option-risk haircut",
+    "full_sample": {
+      "status": "unavailable",
+      "reason": "no valid trade returns"
+    },
+    "full_sample_formula": {
+      "trades": 0,
+      "p_win_rate": null,
+      "b_avg_win_over_avg_loss": null,
+      "avg_win": null,
+      "avg_loss": null,
+      "raw_formula_kelly_fraction": null
+    },
+    "out_of_sample": {
+      "status": "insufficient_oos",
+      "trades": 0,
+      "required_trades": 30,
+      "reason": "need at least 60 total trades to reserve a standard out-of-sample block"
+    },
+    "out_of_sample_formula": {
+      "trades": 0,
+      "p_win_rate": null,
+      "b_avg_win_over_avg_loss": null,
+      "avg_win": null,
+      "avg_loss": null,
+      "raw_formula_kelly_fraction": null
+    },
+    "exploratory_full_sample_kelly_fraction": null,
+    "conditional_oos_kelly_fraction": null,
+    "raw_oos_kelly_fraction": null,
+    "exploratory_formula_kelly_fraction": null,
+    "conditional_formula_kelly_fraction": null,
+    "option_risk_overlay": {
+      "status": "applied",
+      "atm_iv": 0.371928274608109,
+      "iv_status": "market_quote",
+      "realized_vol_20d": 0.16295573572710445,
+      "iv_to_realized_haircut": 0.4381375304117618,
+      "event_front_loaded": false,
+      "event_haircut": 1.0,
+      "combined_haircut": 0.4381375304117618,
+      "interpretation": "risk haircut only; option IV is risk-neutral and does not supply directional alpha"
+    },
+    "fractional_kelly_multiplier": 0.25,
+    "exploratory_fractional_kelly_fraction": null,
+    "conditional_fractional_kelly_fraction": null,
+    "exploratory_formula_fractional_kelly_fraction": null,
+    "conditional_formula_fractional_kelly_fraction": null,
+    "fractional_kelly_fraction": null,
+    "diagnostic_fractional_kelly_cap": null,
+    "diagnostic_cap_inputs": {
+      "concentration_cap_pct": 0.05,
+      "source": "conditional OOS formula Kelly when available, else full-sample formula Kelly",
+      "status": "diagnostic_only_until_standard_oos_qualified"
+    },
+    "sample_confidence": {
+      "label": "very_low",
+      "tier": "exploratory",
+      "reasons": [
+        "0 total completed trades",
+        "0 reserved/observed OOS trades",
+        "standard tier needs 60 total trades",
+        "standard tier needs 30 OOS trades"
+      ],
+      "is_validated": false
+    },
+    "qualification": {
+      "standard_total": 60,
+      "standard_oos": 30,
+      "conditional_total": 20,
+      "conditional_oos": 10
+    },
+    "applied_to_position": false,
+    "sizing_decision": "show_diagnostic_use_fixed_risk_by_default",
+    "limitations": [
+      "Kelly edge is estimated from the deterministic RSI trade log, not from a fundamental or discretionary stock thesis",
+      "standard validation requires at least 60 total trades and at least 30 reserved OOS trades",
+      "short samples produce exploratory/conditional diagnostics with low confidence; they are not validated Kelly",
+      "options IV changes the risk haircut only; it cannot identify direction, expected return, or real-world probability",
+      "the result is an unlevered capital-fraction upper bound and must still be capped by stop loss, concentration, liquidity, and mandate"
+    ]
+  },
+  "position": {
+    "status": "not_requested"
+  },
+  "research_posture": {
+    "evidence_completeness": "technical-plus-options",
+    "underwriting_status": "preliminary; fundamentals, filings, catalysts, and valuation inputs are external evidence modules",
+    "recommendation": "none"
+  }
+}

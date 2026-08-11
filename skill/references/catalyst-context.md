@@ -1,42 +1,133 @@
-# Catalyst, macro, and expectation context
+# Catalyst, macro, expectations, and crowding context
 
-The catalyst module answers **what changed, what is scheduled, and what external state can move the thesis**. It is not a generic news summary.
+Use this module to answer **what changed, what is scheduled, and what the market appears to expect**. It is a context layer, not a standalone directional signal.
 
-## Output blocks
+## Source roles
 
-### Company events
+Use the tested project sources by role:
 
-Capture earnings, guidance changes, 8-K events, management changes, M&A, contracts, product/regulatory events, financing, litigation and material customer/supplier developments. Prefer SEC/IR evidence.
+### Primary/company evidence
 
-### Sector events
+- SEC submissions/companyfacts and filing documents: 10-K, 10-Q, 8-K, Form 4.
+- Issuer investor-relations pages/releases/presentations.
 
-Include only events with a causal path to revenue, margins, capex, demand, supply, valuation or risk. State that path explicitly.
+These can establish reported facts or company claims, subject to the evidence policy.
 
-### Macro exposure
+### Macro/PIT
 
-Select FRED/ALFRED series based on the company's actual sensitivities. A macro series with no stated transmission channel should not enter the scorecard.
+- FRED for current macro series.
+- ALFRED/FRED vintage parameters for historical point-in-time analysis.
 
-### Scheduled catalysts
+Never use today's revised macro value as if it were known at a historical `as_of`.
 
-List event, expected date/time, source, what is priced/expected when evidence exists, and the variables that would invalidate the current scenario distribution.
+### News/catalyst
 
-### Delta since previous evaluation
+- IBKR News for timestamped market/company headlines and selected article bodies.
+- Finnhub news as a complementary feed when useful.
+- Do not count duplicate/syndicated headlines as independent evidence.
 
-When a prior evaluation exists, produce a change log:
+### Market expectations
 
-| Item | Previous state | New evidence | Claim affected | Scenario effect |
-|---|---|---|---|---|
+- Alpha Vantage `EARNINGS_ESTIMATES`, transcripts, and earnings calendar.
+- Management guidance from SEC/IR remains distinct from Street consensus.
 
-Do not rewrite unchanged background as "new" catalyst evidence.
+Represent the key comparison explicitly:
 
-## Consensus/variant perception
+`our model vs consensus vs management guidance vs current market price`.
 
-When Alpha Vantage or another approved estimate source is available, compare:
+### Market-implied event context
 
-`company guidance vs consensus vs internal model vs current market price`
+- Polymarket Gamma/CLOB public data only when a company thesis maps to a relevant external event.
+- Label the output `MARKET_IMPLIED_EXPECTATION`; it is not an objective event probability or company forecast.
 
-Treat estimate revisions as expectation changes. Do not use a current consensus snapshot in historical replay unless the estimate/revision timestamp is at or before the historical cutoff.
+### Crowding/attention proxies
 
-## Prediction-market context
+- FINRA Reg SHO daily short-sale volume: label `SHORT_SALE_FLOW_PROXY`, not short interest.
+- Stocktwits legacy stream: low-confidence retail attention/sentiment context only.
+- Reddit: unavailable unless OAuth/current official approval is configured; do not scrape around the restriction.
 
-Use Polymarket only for a directly linked binary/event question (e.g., regulation, policy, election, geopolitical action). A probability from a thin or ambiguously worded market should be ignored or given low confidence.
+## Catalyst taxonomy
+
+Classify every catalyst into one of:
+
+- `company_reported`: earnings, guidance, KPI, capital allocation, contract, management, M&A, litigation;
+- `company_scheduled`: earnings date, investor day, vote, regulatory deadline;
+- `industry`: competitor result, capacity, pricing, supply/demand, customer read-through;
+- `macro`: rates, inflation, labor, growth, FX, commodity, policy;
+- `regulatory_geopolitical`: sanctions, export controls, tariffs, approvals, court/policy events;
+- `market_expectation`: consensus revision, implied event probability, crowding/attention shift.
+
+## Delta-first analysis
+
+Do not write a generic seven-day news summary when a prior evaluation exists. First answer:
+
+1. What evidence is new since the previous evaluation?
+2. Which existing claim does each new item support, weaken, invalidate, or leave unchanged?
+3. Did consensus, guidance, event probability, or macro regime change?
+4. Which scenario probability should change, if any?
+5. What remains unresolved?
+
+Recommended output:
+
+| New item | Evidence type | Claim affected | Direction | Materiality | Prior -> updated view | PIT-safe? |
+|---|---|---|---|---|---|---|
+
+## Expectation-revision rules
+
+Treat consensus as `street_estimate`, not `FACT`.
+
+For each available horizon capture:
+
+```text
+period
+metric (EPS/revenue/etc.)
+mean/median if available
+high/low if available
+analyst_count
+revision timestamp/window
+previous estimate
+current estimate
+revision direction and magnitude
+```
+
+Prefer revision **change** and dispersion over a point estimate in isolation. Do not infer causality from a revision unless the supporting event is separately sourced.
+
+## Insider rules
+
+Use SEC Form 4 and classify the transaction code before interpretation. Distinguish open-market purchase, sale, grant, exercise, tax withholding, and other/non-discretionary activity. Preserve owner role, direct/indirect ownership, transaction date, price, shares, post-transaction holdings, and disclosed 10b5-1 context where available.
+
+An insider sale is not automatically bearish; an open-market purchase may be informative but remains one evidence item.
+
+## Macro exposure mapping
+
+Do not inject every FRED series into every stock. Select macro evidence through a causal exposure map, for example:
+
+- rates/duration sensitivity;
+- credit/funding sensitivity;
+- commodity/input sensitivity;
+- FX/geography sensitivity;
+- industrial-cycle sensitivity;
+- consumer/labor sensitivity.
+
+The report must state why each macro series is relevant to the company thesis.
+
+## Output contract
+
+The module returns:
+
+```text
+as_of
+previous_evaluation_as_of (if any)
+new_company_catalysts
+scheduled_catalysts
+industry_readthroughs
+macro_exposures_and_changes
+consensus_and_revision_delta
+insider_context
+market_implied_event_context
+crowding_attention_context
+material_claim_updates
+unresolved_evidence_requests
+```
+
+Do not convert any one context signal into a mechanical buy/sell recommendation.
