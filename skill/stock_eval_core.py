@@ -9,6 +9,7 @@ from pathlib import Path
 from statistics import median, pstdev
 from typing import Any
 
+
 def f(value: Any) -> float | None:
     try:
         x = float(value)
@@ -16,9 +17,11 @@ def f(value: Any) -> float | None:
     except (TypeError, ValueError):
         return None
 
+
 def load_json(path: str | Path) -> Any:
     with open(path, "r", encoding="utf-8") as handle:
         return json.load(handle)
+
 
 def _rows(payload: Any, keys: tuple[str, ...]) -> list[dict[str, Any]]:
     if isinstance(payload, list):
@@ -28,6 +31,7 @@ def _rows(payload: Any, keys: tuple[str, ...]) -> list[dict[str, Any]]:
             if isinstance(payload.get(key), list):
                 return [x for x in payload[key] if isinstance(x, dict)]
     return []
+
 
 def normalize_bars(payload: Any) -> list[dict[str, Any]]:
     out = []
@@ -46,8 +50,10 @@ def normalize_bars(payload: Any) -> list[dict[str, Any]]:
     out.sort(key=lambda x: x["date"])
     return out
 
+
 def sma(values: list[float], n: int) -> float | None:
     return sum(values[-n:]) / n if len(values) >= n else None
+
 
 def ema_series(values: list[float], n: int) -> list[float | None]:
     if not values:
@@ -63,6 +69,7 @@ def ema_series(values: list[float], n: int) -> list[float | None]:
         out[i] = prev
     return out
 
+
 def rsi(values: list[float], n: int = 14) -> float | None:
     if len(values) <= n:
         return None
@@ -77,6 +84,7 @@ def rsi(values: list[float], n: int = 14) -> float | None:
         return 100.0
     return 100 - 100 / (1 + avg_gain / avg_loss)
 
+
 def atr(bars: list[dict[str, Any]], n: int = 14) -> float | None:
     if len(bars) <= n:
         return None
@@ -88,6 +96,7 @@ def atr(bars: list[dict[str, Any]], n: int = 14) -> float | None:
     for x in tr[n + 1 :]:
         value = (value * (n - 1) + x) / n
     return value
+
 
 def technical_analysis(bars: list[dict[str, Any]]) -> dict[str, Any]:
     if len(bars) < 30:
@@ -144,6 +153,7 @@ def technical_analysis(bars: list[dict[str, Any]]) -> dict[str, Any]:
         "limitations": ["daily close-price weighted nodes are not a true intraday volume profile", "RSI and MA signals are descriptive, not directional recommendations"],
     }
 
+
 def norm_options(payload: Any) -> list[dict[str, Any]]:
     out = []
     for row in _rows(payload, ("options", "results", "data", "contracts")):
@@ -164,11 +174,36 @@ def norm_options(payload: Any) -> list[dict[str, Any]]:
         quote_quality = raw_quality if valid_mid or raw_quality in ("model_only", "last_ohlcv_no_bid_ask") else "last_fallback"
         provider_iv = f(row.get("iv", row.get("implied_volatility")))
         usable_iv = provider_iv if valid_mid or raw_quality == "model_only" else None
-        out.append({"type": typ, "strike": strike, "bid": bid, "ask": ask, "last": last, "mid": mid, "expiry": expiry, "volume": f(row.get("volume", 0)) or 0.0, "open_interest": f(row.get("open_interest", row.get("oi", 0))) or 0.0, "iv": usable_iv, "delta": f(row.get("delta")), "quote_quality": quote_quality})
+        out.append({
+            "type": typ, "strike": strike, "bid": bid, "ask": ask, "last": last, "mid": mid, "expiry": expiry,
+            "volume": f(row.get("volume")),
+            "open_interest": f(row.get("open_interest", row.get("oi"))),
+            "iv": usable_iv, "delta": f(row.get("delta")), "quote_quality": quote_quality,
+        })
     return out
+
+
+def _field_coverage(rows: list[dict[str, Any]], key: str) -> dict[str, Any]:
+    present = sum(1 for row in rows if row.get(key) is not None)
+    total = len(rows)
+    return {"rows": total, "present": present, "missing": total - present, "coverage_ratio": present / total if total else None}
+
+
+def _observed_sum(rows: list[dict[str, Any]], key: str) -> float | None:
+    values = [row.get(key) for row in rows if row.get(key) is not None]
+    return sum(values) if values else None
+
+
+def _complete_sum(rows: list[dict[str, Any]], key: str) -> float | None:
+    coverage = _field_coverage(rows, key)
+    if not rows or coverage["present"] != coverage["rows"]:
+        return None
+    return _observed_sum(rows, key)
+
 
 def norm_cdf(x: float) -> float:
     return 0.5 * (1 + math.erf(x / math.sqrt(2)))
+
 
 def bs_price(spot: float, strike: float, t: float, vol: float, right: str, rate: float = 0.0, dividend: float = 0.0) -> float:
     if t <= 0 or vol <= 0:
@@ -178,6 +213,7 @@ def bs_price(spot: float, strike: float, t: float, vol: float, right: str, rate:
     if right == "call":
         return spot * math.exp(-dividend * t) * norm_cdf(d1) - strike * math.exp(-rate * t) * norm_cdf(d2)
     return strike * math.exp(-rate * t) * norm_cdf(-d2) - spot * math.exp(-dividend * t) * norm_cdf(-d1)
+
 
 def implied_vol(price: float | None, spot: float, strike: float, t: float, right: str) -> float | None:
     if price is None or price <= 0 or spot <= 0 or strike <= 0 or t <= 0:
@@ -196,6 +232,7 @@ def implied_vol(price: float | None, spot: float, strike: float, t: float, right
             high = mid
     return (low + high) / 2
 
+
 def expiry_years(expiry: str, as_of: str | None) -> float | None:
     try:
         end = dt.date.fromisoformat(expiry)
@@ -203,6 +240,7 @@ def expiry_years(expiry: str, as_of: str | None) -> float | None:
         return max((end - start).days, 1) / 365.0
     except ValueError:
         return None
+
 
 def option_analysis(payload: Any, spot: float, as_of: str | None = None) -> dict[str, Any]:
     options = norm_options(payload)
@@ -221,12 +259,57 @@ def option_analysis(payload: Any, spot: float, as_of: str | None = None) -> dict
     atm_ivs = market_atm_ivs or model_atm_ivs
     calls = [x for x in options if x["type"] == "call"]
     puts = [x for x in options if x["type"] == "put"]
-    call_vol, put_vol = sum(x["volume"] for x in calls), sum(x["volume"] for x in puts)
-    call_oi, put_oi = sum(x["open_interest"] for x in calls), sum(x["open_interest"] for x in puts)
-    atm_straddle = sum(x["mid"] or 0 for x in atm if x["strike"] == min(atm, key=lambda z: abs(z["strike"] - spot))["strike"])
+
+    call_vol_coverage = _field_coverage(calls, "volume")
+    put_vol_coverage = _field_coverage(puts, "volume")
+    call_oi_coverage = _field_coverage(calls, "open_interest")
+    put_oi_coverage = _field_coverage(puts, "open_interest")
+    call_vol, put_vol = _complete_sum(calls, "volume"), _complete_sum(puts, "volume")
+    call_oi, put_oi = _complete_sum(calls, "open_interest"), _complete_sum(puts, "open_interest")
+    call_vol_observed, put_vol_observed = _observed_sum(calls, "volume"), _observed_sum(puts, "volume")
+    call_oi_observed, put_oi_observed = _observed_sum(calls, "open_interest"), _observed_sum(puts, "open_interest")
+
+    atm_straddle = None
+    if near:
+        atm_strike = min({x["strike"] for x in near}, key=lambda strike: abs(strike - spot))
+        atm_call = next((x for x in calls if x["expiry"] == nearest_expiry and x["strike"] == atm_strike), None)
+        atm_put = next((x for x in puts if x["expiry"] == nearest_expiry and x["strike"] == atm_strike), None)
+        if atm_call and atm_put and atm_call.get("mid") is not None and atm_put.get("mid") is not None:
+            atm_straddle = atm_call["mid"] + atm_put["mid"]
     t_atm = expiry_years(nearest_expiry, as_of) if nearest_expiry else None
     approx = atm_straddle / spot * math.sqrt(math.pi / (2 * t_atm)) if atm_straddle and spot and t_atm else None
-    return {"status": "ok", "contracts": len(options), "expiries": expiries, "front_expiry": nearest_expiry, "atm_iv": median(atm_ivs) if atm_ivs else None, "atm_iv_status": "market_quote" if market_atm_ivs else "model_only_no_market_quote" if model_atm_ivs else "unavailable", "atm_iv_method": "numerical_black_scholes_from_mid_or_provider_iv", "atm_straddle_approximation_diagnostic": approx, "put_call_volume_ratio": put_vol / call_vol if call_vol else None, "put_call_oi_ratio": put_oi / call_oi if call_oi else None, "activity_distribution_only": True, "quote_quality_counts": {"bid_ask_mid": sum(x["quote_quality"] == "bid_ask_mid" for x in options), "last_fallback": sum(x["quote_quality"] == "last_fallback" for x in options), "last_ohlcv_no_bid_ask": sum(x["quote_quality"] == "last_ohlcv_no_bid_ask" for x in options), "model_only": sum(x["quote_quality"] == "model_only" for x in options), "no_quote": sum(x["quote_quality"] == "no_quote" for x in options)}, "front_total_variance": (median(atm_ivs) ** 2 * t_atm) if atm_ivs and t_atm else None, "warnings": ["put/call totals do not identify buy/sell or open/close direction", "Greeks are not assumed when absent", "wide/stale quote checks require provider timestamps"]}
+
+    return {
+        "status": "ok", "contracts": len(options), "expiries": expiries, "front_expiry": nearest_expiry,
+        "atm_iv": median(atm_ivs) if atm_ivs else None,
+        "atm_iv_status": "market_quote" if market_atm_ivs else "model_only_no_market_quote" if model_atm_ivs else "unavailable",
+        "atm_iv_method": "numerical_black_scholes_from_mid_or_provider_iv",
+        "atm_straddle_approximation_diagnostic": approx,
+        "call_volume": call_vol, "put_volume": put_vol,
+        "call_volume_observed_sum": call_vol_observed, "put_volume_observed_sum": put_vol_observed,
+        "call_volume_coverage": call_vol_coverage, "put_volume_coverage": put_vol_coverage,
+        "put_call_volume_ratio": put_vol / call_vol if call_vol not in (None, 0) and put_vol is not None else None,
+        "call_open_interest": call_oi, "put_open_interest": put_oi,
+        "call_open_interest_observed_sum": call_oi_observed, "put_open_interest_observed_sum": put_oi_observed,
+        "call_open_interest_coverage": call_oi_coverage, "put_open_interest_coverage": put_oi_coverage,
+        "put_call_oi_ratio": put_oi / call_oi if call_oi not in (None, 0) and put_oi is not None else None,
+        "activity_distribution_only": True,
+        "quote_quality_counts": {
+            "bid_ask_mid": sum(x["quote_quality"] == "bid_ask_mid" for x in options),
+            "last_fallback": sum(x["quote_quality"] == "last_fallback" for x in options),
+            "last_ohlcv_no_bid_ask": sum(x["quote_quality"] == "last_ohlcv_no_bid_ask" for x in options),
+            "model_only": sum(x["quote_quality"] == "model_only" for x in options),
+            "no_quote": sum(x["quote_quality"] == "no_quote" for x in options),
+        },
+        "front_total_variance": (median(atm_ivs) ** 2 * t_atm) if atm_ivs and t_atm else None,
+        "warnings": [
+            "put/call totals do not identify buy/sell or open/close direction",
+            "missing option volume/open_interest stays missing; complete totals/ratios require full field coverage",
+            "Greeks are not assumed when absent",
+            "wide/stale quote checks require provider timestamps",
+        ],
+    }
+
 
 def term_structure(front_payload: Any, back_payload: Any, spot: float, as_of: str | None = None) -> dict[str, Any]:
     front = option_analysis(front_payload, spot, as_of)
@@ -239,4 +322,3 @@ def term_structure(front_payload: Any, back_payload: Any, spot: float, as_of: st
         return {"status": "unavailable", "front": front, "back": back, "reason": "invalid comparable expiries"}
     w1, w2 = front["atm_iv"] ** 2 * ft, back["atm_iv"] ** 2 * bt
     return {"status": "ok", "front_expiry": front["front_expiry"], "back_expiry": back["front_expiry"], "front_iv": front["atm_iv"], "back_iv": back["atm_iv"], "front_total_variance": w1, "back_total_variance": w2, "forward_variance": (w2 - w1) / (bt - ft), "interpretation": "event-rich/front-loaded" if w1 / w2 > 1.15 else "normal/contango" if w1 / w2 < 0.95 else "flat"}
-
