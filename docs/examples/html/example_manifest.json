@@ -1,0 +1,26 @@
+{
+  "as_of": "2026-08-11",
+  "purpose": "versioned demonstration artifacts for the modular HTML report contract",
+  "canonical_renderer": "skill/scripts/render_html_report.py",
+  "plotly_policy": "examples use CDN; normal generated reports embed Plotly for standalone/offline use",
+  "examples": [
+    {
+      "file": "GEV_full_example.html",
+      "symbol": "GEV",
+      "modules": ["overview", "fundamentals", "technical", "options", "risk", "scenarios", "evidence"],
+      "demonstrates": ["full report composition", "evidence-quality warnings", "weak Gamma/OI evidence not promoted to a wall", "explicit Kelly labels"]
+    },
+    {
+      "file": "XE_technical_example.html",
+      "symbol": "XE",
+      "modules": ["technical"],
+      "demonstrates": ["module-only standalone HTML", "trend/volatility/levels", "intraday-evidence gate"]
+    },
+    {
+      "file": "XE_options_example.html",
+      "symbol": "XE",
+      "modules": ["options"],
+      "demonstrates": ["module-only standalone HTML", "expected move and variance diagnostics", "zero-OI Gamma Wall suppression"]
+    }
+  ]
+}
