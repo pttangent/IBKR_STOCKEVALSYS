@@ -2,7 +2,7 @@
 
 Evidence-backed single-stock research with IBKR/TWS as the primary market/options source and deterministic calculations before analyst interpretation.
 
-This repository contains the current `stock-eval-system` skill plus the project-local, read-only IBKR MCP used by the skill. The MCP is vendored here so the skill, provider contracts, news fixes, option-chain qualification, tests, and runtime configuration remain versioned together. It is not an autonomous trading agent.
+This repository contains the current `stock-eval-system` skill plus the project-local, read-only IBKR MCP used by the skill. The MCP is vendored here so the skill, provider contracts, news fixes, option-chain qualification, tests, runtime configuration, report-quality rules, and HTML output contract remain versioned together. It is not an autonomous trading agent.
 
 ## Repository layout
 
@@ -33,7 +33,9 @@ IBKR market/options + SEC + IR + FRED/ALFRED + IBKR News + consensus
                               |
                   scenarios / risk state
                               |
-                 report manifest / HTML
+                    report manifest
+                      /       \
+                Markdown     HTML
 ```
 
 Reviewers are not allowed to browse independently. They may only cite the frozen evidence packet or emit a structured evidence request.
@@ -51,6 +53,7 @@ Reviewers are not allowed to browse independently. They may only cite the frozen
 - Bull / Bear / Skeptic / Arbiter operating contracts in the skill references.
 - Structured decision/outcome SQLite memory with multiclass Brier calibration before any narrative reflection.
 - Modular rich HTML renderer with full-report and module-only output.
+- Report-quality gates distilled from real report/evidence audits: source freshness barriers, primary-source preference, `missing != 0`, exact Kelly labels, intraday-evidence gating, and replay-completeness disclosure.
 - Options Gamma structure that remains unsigned unless dealer/customer position sign is independently inferred; zero/untrusted OI cannot manufacture a Gamma Wall.
 
 ## Quick start
@@ -88,7 +91,7 @@ python skill/scripts/build_evidence_packet.py --symbol NVDA --as-of 2026-08-07 \
 
 ## Rich HTML reports
 
-The canonical renderer is `skill/scripts/render_html_report.py`. It can emit either the complete research report or one or more independent modules such as `technical`, `options`, or `risk`.
+The canonical renderer is `skill/scripts/render_html_report.py`. It can emit either the complete research report or one or more independent modules such as `technical`, `options`, or `risk`. Generated reports should keep data quality and missing-evidence warnings reader-visible rather than hiding them only in JSON audit artifacts.
 
 ```bash
 # Full HTML
@@ -105,13 +108,30 @@ python skill/scripts/render_html_report.py \
   --modules options
 ```
 
-Versioned examples are under [`docs/examples/html/`](docs/examples/html/):
+The report contract and distilled quality gates are documented in [`skill/references/report-quality-and-html.md`](skill/references/report-quality-and-html.md). The machine-readable output contract is [`skill/schemas/report-manifest.schema.json`](skill/schemas/report-manifest.schema.json), with validation through `skill/scripts/validate_report_manifest.py`.
 
-- [`GEV_full_example.html`](docs/examples/html/GEV_full_example.html) — compact full-report example.
-- [`XE_technical_example.html`](docs/examples/html/XE_technical_example.html) — technical-only example.
-- [`XE_options_example.html`](docs/examples/html/XE_options_example.html) — options-only example with zero-OI Gamma suppression.
+### Versioned HTML examples
 
-The normal renderer embeds Plotly so generated reports are standalone/offline. The Git-versioned examples use the Plotly CDN only to avoid duplicating several megabytes of library JavaScript per example.
+Compact examples are kept under [`docs/examples/html/`](docs/examples/html/):
+
+- [`GEV_full_example.html`](docs/examples/html/GEV_full_example.html) — representative full report, including evidence-quality warnings and scenario/risk visualization.
+- [`XE_technical_example.html`](docs/examples/html/XE_technical_example.html) — technical-only output.
+- [`XE_options_example.html`](docs/examples/html/XE_options_example.html) — options-only output showing the required zero-OI Gamma suppression behavior.
+
+The normal renderer embeds Plotly so generated reports are standalone/offline. The Git-versioned examples use the Plotly CDN only to avoid duplicating several megabytes of library JavaScript per example. They are frozen demonstration artifacts, not live market views.
+
+## Report correctness rules
+
+Reader-facing output must preserve these distinctions:
+
+- Evidence and calculations must be current enough for the report `as_of`; a post-earnings price snapshot cannot silently use pre-earnings fundamentals as if no newer filing exists.
+- Prefer primary SEC/company IR evidence for reported company results when available; secondary reporting is a complement, not the default replacement.
+- Missing option fields remain missing. Missing OI, volume, quote, Greeks, or one ATM straddle leg must not silently become zero.
+- OI is not dealer positioning. Gross Gamma is unsigned unless a defensible position-sign model exists.
+- All-zero or economically untrusted OI/Gamma must return an unavailable/suppressed Gamma concentration state rather than ranking fake zero-valued walls.
+- Kelly outputs must distinguish raw/full-sample, half, quarter/fractional, OOS-qualified, diagnostic cap, and actually applied Kelly.
+- A report without intraday VWAP/ORH/ORL/current-session evidence may present a next-session setup, but not claim current intraday confirmation.
+- Full-research replayability requires the underlying evidence packet / source artifacts, Claim Graph, review/arbitration artifacts, and relevant deterministic outputs; prose URLs alone are not a complete frozen research run.
 
 For provider setup and exact source roles, read `skill/references/provider-setup.md`. For the adversarial-review contract, read `skill/references/adversarial-review.md`. For the P3 calibration loop, read `skill/references/decision-memory.md`.
 
