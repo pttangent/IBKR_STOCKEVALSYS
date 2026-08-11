@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "run_id": null,
+  "symbol": "SYMBOL",
+  "as_of": "YYYY-MM-DD",
+  "evidence_cutoff": null,
+  "price_timestamp": null,
+  "research_state": "NEEDS_EVIDENCE",
+  "global_limitations": [],
+  "modules": {
+    "technical": {
+      "status": "unavailable",
+      "confidence": null,
+      "module_as_of": null,
+      "latest_material_event_at": null,
+      "latest_primary_evidence_at": null,
+      "freshness_status": "unknown",
+      "source_artifacts": [],
+      "evidence_ids": [],
+      "missing_fields": [],
+      "metrics": {},
+      "narrative_markdown": null,
+      "visualizations": [],
+      "limitations": []
+    }
+  }
+}
