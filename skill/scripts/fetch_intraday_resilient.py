@@ -10,13 +10,37 @@ import json
 import os
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env.local")
 
-
 ROOT = Path(__file__).resolve().parent
+NY = ZoneInfo("America/New_York")
+
+
+def effective_end_date_time(requested: str | None, now: dt.datetime | None = None) -> tuple[str, bool]:
+    """Resolve an IBKR exchange-time cursor that can never lie in the future."""
+    current = (now or dt.datetime.now(NY)).astimezone(NY)
+    if not requested:
+        return current.strftime("%Y%m%d %H:%M:%S US/Eastern"), False
+    text = requested.strip()
+    try:
+        parsed = dt.datetime.strptime(text.replace(" US/Eastern", ""), "%Y%m%d %H:%M:%S").replace(tzinfo=NY)
+    except ValueError as exc:
+        raise ValueError("end_date_time must use YYYYMMDD HH:mm:ss US/Eastern") from exc
+    if parsed > current:
+        return current.strftime("%Y%m%d %H:%M:%S US/Eastern"), True
+    return parsed.strftime("%Y%m%d %H:%M:%S US/Eastern"), False
+
+
+def _effective_massive_window(effective_end: str, start: str | None, end: str | None) -> tuple[str, str]:
+    end_day = dt.date(int(effective_end[:4]), int(effective_end[4:6]), int(effective_end[6:8]))
+    requested_end = dt.date.fromisoformat(end) if end else end_day
+    capped_end = min(requested_end, end_day)
+    requested_start = dt.date.fromisoformat(start) if start else capped_end - dt.timedelta(days=32)
+    return requested_start.isoformat(), capped_end.isoformat()
 
 
 def bar_to_dict(bar: Any) -> dict[str, Any]:
@@ -44,11 +68,6 @@ async def ibkr_request(symbol: str, duration: str, end: str, client_id: int, tim
 async def fetch_ibkr(symbol: str, end: str, client_id: int, retries: int, timeout: float, pause: float) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     attempts: list[dict[str, Any]] = []
     durations = ["30 D"] + (["14 D", "14 D", "4 D"] if retries >= 0 else [])
-    # Try the large batch once. IBKR can soft-throttle a large 1-minute
-    # request without rejecting the underlying contract. Repeating the same
-    # slow request only adds minutes and does not improve coverage; rebuild
-    # the window in smaller pages immediately after the first timeout or
-    # incomplete response. Explicit retries remain opt-in.
     for attempt in range(max(1, retries + 1)):
         started = dt.datetime.now(dt.timezone.utc)
         try:
@@ -140,7 +159,7 @@ def optional_yfinance(symbol: str, end_date_time: str, days: int = 30) -> tuple[
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--symbol", required=True)
-    ap.add_argument("--end-date-time", default="20260806 16:00:00 US/Eastern")
+    ap.add_argument("--end-date-time", help="YYYYMMDD HH:mm:ss US/Eastern; defaults to current exchange time; future values are capped")
     ap.add_argument("--client-id", type=int, default=4780)
     ap.add_argument("--retries", type=int, default=0,
                     help="retries of the large 30 D request; default 0, then use IBKR chunks")
@@ -150,17 +169,24 @@ def main():
     ap.add_argument("--also-yfinance", action="store_true", help="also query yfinance for cross-check even when IBKR succeeds")
     ap.add_argument("--no-massive", action="store_true", help="disable automatic Massive fallback")
     ap.add_argument("--no-yfinance", action="store_true", help="disable automatic yfinance fallback")
-    ap.add_argument("--massive-start", default="2026-06-25")
-    ap.add_argument("--massive-end", default="2026-08-07")
+    ap.add_argument("--massive-start", help="YYYY-MM-DD; defaults to 32 calendar days before the effective cursor")
+    ap.add_argument("--massive-end", help="YYYY-MM-DD; defaults to the effective cursor date; future values are capped")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
+
+    try:
+        effective_end, future_cursor_capped = effective_end_date_time(args.end_date_time)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+    massive_start, massive_end = _effective_massive_window(effective_end, args.massive_start, args.massive_end)
+
     try:
         from ib_async import IB  # noqa: F401
         ibkr_available = True
     except ImportError:
         ibkr_available = False
     if ibkr_available:
-        ibkr_audit, bars = asyncio.run(fetch_ibkr(args.symbol, args.end_date_time, args.client_id, args.retries, args.timeout, args.pause_seconds))
+        ibkr_audit, bars = asyncio.run(fetch_ibkr(args.symbol, effective_end, args.client_id, args.retries, args.timeout, args.pause_seconds))
     else:
         ibkr_audit, bars = {"status": "unavailable", "reason": "ib_async is not installed"}, []
     sources = {"ibkr": ibkr_audit}
@@ -171,7 +197,7 @@ def main():
         assert spec and spec.loader
         spec.loader.exec_module(module)
         try:
-            packet = module.fetch(args.symbol, args.massive_start, args.massive_end, rth_only=True)
+            packet = module.fetch(args.symbol, massive_start, massive_end, rth_only=True)
             sources["massive"] = {"status": "ok", "bars": len(packet["bars"]), "response": packet.get("response")}
             if not bars:
                 bars = packet["bars"]
@@ -179,16 +205,27 @@ def main():
         except Exception as exc:
             sources["massive"] = {"status": "error", "error": f"{type(exc).__name__}: {exc}"}
     if (not bars and not args.no_yfinance) or args.also_yfinance:
-        audit, yf_bars = optional_yfinance(args.symbol, args.end_date_time)
+        audit, yf_bars = optional_yfinance(args.symbol, effective_end)
         sources["yfinance"] = audit
         if not bars and yf_bars:
             bars, selected = yf_bars, "yfinance"
-    output = {"provider": selected, "retrieved_at": dt.datetime.now(dt.timezone.utc).isoformat(), "symbol": args.symbol.upper(),
-              "request": {"target": "30 calendar days of 1-minute RTH TRADES", "end_date_time": args.end_date_time},
-              "source_selection": {"priority": ["ibkr", "massive", "yfinance"], "selected": selected, "sources": sources},
-              "bars": bars}
+    output = {
+        "provider": selected,
+        "retrieved_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "symbol": args.symbol.upper(),
+        "request": {
+            "target": "30 calendar days of 1-minute RTH TRADES",
+            "requested_end_date_time": args.end_date_time,
+            "end_date_time": effective_end,
+            "future_cursor_capped": future_cursor_capped,
+            "massive_start": massive_start,
+            "massive_end": massive_end,
+        },
+        "source_selection": {"priority": ["ibkr", "massive", "yfinance"], "selected": selected, "sources": sources},
+        "bars": bars,
+    }
     Path(args.out).write_text(json.dumps(output, ensure_ascii=False, indent=2, default=str) + "\n", encoding="utf-8")
-    print(json.dumps({"written": args.out, "selected": selected, "bars": len(bars), "sources": sources}, ensure_ascii=False))
+    print(json.dumps({"written": args.out, "selected": selected, "bars": len(bars), "future_cursor_capped": future_cursor_capped, "sources": sources}, ensure_ascii=False))
 
 
 if __name__ == "__main__":
