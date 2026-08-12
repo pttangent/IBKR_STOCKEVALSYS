@@ -1,50 +1,40 @@
-# Versioned HTML report examples
+# Versioned HTML report example
 
-These files are compact, version-controlled examples of the stock-evaluation HTML output contract. They are intentionally kept small enough for normal Git history.
+This directory now contains one canonical **v2 full-report example** instead of the older GEV/XE legacy examples.
 
-## Examples
+## Current example
 
-- [`GEV_full_example.html`](GEV_full_example.html) — representative full report: fundamentals, technical state, options, scenario/risk and evidence-quality warnings.
-- [`XE_technical_example.html`](XE_technical_example.html) — technical-only module output.
-- [`XE_options_example.html`](XE_options_example.html) — options-only module output, including the required Gamma suppression behavior when economically meaningful OI/Gamma is unavailable.
+- [`INTC_v2_full_example.html`](INTC_v2_full_example.html) — full terminal-style report mockup demonstrating the current structured-report UX.
+- [`INTC_v2_structured_report.mock.json`](INTC_v2_structured_report.mock.json) — compact structured source illustrating the data shape behind the mockup.
 - [`INDEX.html`](INDEX.html) — browser-oriented entry page.
-- [`example_manifest.json`](example_manifest.json) — machine-readable inventory of the demonstration cases.
+- [`example_manifest.json`](example_manifest.json) — machine-readable example inventory.
 
-## Important distinction
+The INTC page is explicitly marked **DEMO / PARTIALLY MOCKED**. Some numbers are illustrative so the example can demonstrate the complete layout even when a frozen real bundle lacks every required field. It is not a live INTC conclusion and must not be reused as research evidence.
 
-The canonical renderer is [`skill/scripts/render_html_report.py`](../../../skill/scripts/render_html_report.py). Normal generated reports embed Plotly and are standalone/offline HTML files. These repository examples load Plotly from the public CDN so that several examples do not add roughly 15 MB of duplicated Plotly JavaScript to Git history.
+## What the v2 example demonstrates
 
-The examples are frozen from the 2026-08-11 audited research bundle. They are demonstration artifacts, not live market views and not current investment conclusions. Do not reuse their ticker-specific prices, assumptions, scenario weights or conclusions in a new report.
+1. `structured_report.json` is the reader-facing semantic source of truth. Markdown and HTML are sibling render targets; HTML must not parse Markdown to recover report meaning.
+2. The default sizing illustration is a clearly labelled **$10,000 simulation account** unless a real account size is supplied upstream to the deterministic engine.
+3. Kelly is shown as a calculation chain, not one unexplained percentage: `p`, `b`, formula Kelly, empirical log-growth Kelly, current-RV / event overlays, then full / half / quarter variants.
+4. Full / half / quarter are converted into final NAV %, dollar notional, fractional shares, one-day 1-sigma risk and binding portfolio caps.
+5. Incomplete setup/sample evidence should normally produce `validated`, `conditional`, `exploratory`, `proxy`, or `risk-only` guidance rather than a blank report. Abstain only when inputs are too incomplete to support a defensible scale.
+6. Intraday scenarios use a branching tree: premarket context -> gap-up / flat / gap-down -> acceptance / fade / reversal paths. Every leaf carries `IF`, `THEN`, `WATCH`, `INVALIDATION`, `ACTION BOUNDARY`, and a sizing tier where defensible.
+7. Short-term and long-term scenarios are separate trees. Intraday price/microstructure evidence is not used as proof of a quarters-long thesis, and long-term TAM/fundamental narratives do not override intraday invalidation.
+8. Every important visualization should be followed by `WHAT / READ / WHY / LIMIT` interpretation so the reader is not left with an unexplained chart.
 
-`GEV_full_example.html` deliberately keeps weak Gamma/OI evidence visible: one economically non-zero OI row is not promoted to a reliable wall. `XE_options_example.html` demonstrates the stricter all-zero case, where Gamma-wall output is suppressed entirely.
+## Production renderer
 
-## Quality behaviors demonstrated
+The canonical renderer is [`skill/scripts/render_html_report.py`](../../../skill/scripts/render_html_report.py). Normal generated reports are built from `structured_report.json` plus deterministic artifacts and embed Plotly for standalone/offline viewing.
 
-1. `missing != 0`: missing OI/quote fields are not silently converted to economic zero.
-2. Gamma concentration is unsigned unless dealer/customer position sign is independently inferred.
-3. Zero or untrusted OI/Gamma must not create a fake Gamma Wall.
-4. Kelly variants are labelled separately; exploratory/quarter Kelly is not presented as validated full Kelly.
-5. A module-only request still produces a complete, readable HTML document.
-6. Full research keeps evidence/data quality visible in the reader-facing report, not only in JSON audit artifacts.
-7. Without current-session intraday evidence, technical output is labelled as next-session structure rather than false “today confirmed” timing.
+Typical production flow:
 
-## Regeneration
-
-A normal full report:
-
-```bash
-python skill/scripts/render_html_report.py \
-  --report runs/GEV/GEV_complete_report.md \
-  --run-dir runs/GEV \
-  --output runs/GEV/GEV_complete_report.html
+```text
+raw / normalized evidence
+  -> deterministic artifacts
+  -> structured_report.json
+       -> Markdown renderer
+       -> HTML renderer
+       -> evidence-chain report package ZIP
 ```
 
-A single module:
-
-```bash
-python skill/scripts/render_html_report.py \
-  --report runs/XE/XE_complete_report.md \
-  --run-dir runs/XE \
-  --output runs/XE/XE_options.html \
-  --modules options
-```
+The mock page in this directory is intentionally small and hand-checkable. Its purpose is to make the desired v2 information architecture visually obvious in Git history; production reports should be generated by the renderer, not copied from the example.
