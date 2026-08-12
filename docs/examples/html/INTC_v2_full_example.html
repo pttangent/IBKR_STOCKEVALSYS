@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>INTC StockEval v2 · Demo</title>
+<style>
+:root{--bg:#090909;--fg:#f5f5f5;--muted:#9b9b9b;--line:#292929;--panel:#101010;--green:#3ddc84;--red:#ff5d5d;--amber:#ffb020;--cyan:#69d2e7}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--fg);font-family:"Space Mono","JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;line-height:1.5}.shell{max-width:1500px;margin:auto;padding:18px}.top{display:grid;grid-template-columns:1fr auto;gap:20px;align-items:end;padding:18px 0;border-bottom:1px solid var(--line)}.kicker,.label,.section-title,.smallcap{text-transform:uppercase;letter-spacing:.12em;font-weight:700}.kicker{color:var(--amber);font-size:10px}.top h1{margin:6px 0 0;font-size:30px;line-height:1.05}.meta{text-align:right;color:var(--muted);font-size:10px}.tag{display:inline-block;border:1px solid var(--line);padding:4px 7px;margin:5px 6px 0 0}.tag.good{color:var(--green);border-color:#17482d}.tag.warn{color:var(--amber);border-color:#684813}.tag.bad{color:var(--red);border-color:#622020}.nav{position:sticky;top:0;z-index:10;background:#090909f2;border-bottom:1px solid var(--line);padding:9px 0;overflow:auto;white-space:nowrap}.nav a{color:var(--muted);text-decoration:none;margin-right:18px;font-size:10px}.nav a:hover{color:var(--fg)}.grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));border-left:1px solid var(--line);border-top:1px solid var(--line);margin-top:18px}.cell{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:13px}.s3{grid-column:span 3}.s4{grid-column:span 4}.s6{grid-column:span 6}.s12{grid-column:span 12}.metric .label{font-size:9px;color:var(--muted)}.metric .value{font-size:22px;font-weight:800;margin-top:5px}.metric .sub{font-size:10px;color:var(--muted);margin-top:3px}.section{margin-top:28px;border-top:1px solid var(--line)}.section-head{display:flex;justify-content:space-between;gap:15px;padding:11px 0;border-bottom:1px solid var(--line)}.section-title{font-size:14px}.status{font-size:10px;color:var(--muted)}.panel{border:1px solid var(--line);background:var(--panel);margin-top:14px}.panel-head{padding:10px 12px;border-bottom:1px solid var(--line);font-size:10px;font-weight:800;letter-spacing:.1em}.panel-body{padding:13px}.note{border-left:2px solid var(--amber);padding:9px 11px;background:#15120b;margin:10px 0}.goodtxt{color:var(--green)}.badtxt{color:var(--red)}.warntxt{color:var(--amber)}.muted{color:var(--muted)}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid var(--line);padding:8px;text-align:left;vertical-align:top}th{color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.08em}.guide-row{background:#132017}.formula{padding:10px 12px;border:1px solid var(--line);background:#0b0b0b;white-space:pre-wrap;font-size:11px}.bars{padding:12px}.bar-row{display:grid;grid-template-columns:80px 1fr 85px;gap:10px;align-items:center;margin:10px 0}.track{height:14px;border:1px solid var(--line);position:relative;background:#070707}.fill{height:100%;background:var(--fg)}.fill.final{background:var(--green)}.fill.warn{background:var(--amber)}.split{display:grid;grid-template-columns:1fr 1fr;gap:14px}.explain{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line)}.explain>div{padding:10px;border-right:1px solid var(--line)}.explain>div:last-child{border-right:0}.xk{font-size:9px;color:var(--muted);font-weight:800;letter-spacing:.1em}.xv{font-size:11px;margin-top:5px}.xo{font-size:10px;color:#d5d5d5;margin-top:6px}.tree-wrap{overflow:auto;padding:14px}.tree{min-width:1050px}.tree-root{text-align:center;margin-bottom:20px}.node{display:inline-block;vertical-align:top;border:1px solid var(--line);background:#0d0d0d;padding:9px 10px;min-width:205px;max-width:265px;text-align:left}.node strong{display:block;font-size:11px}.node small{display:block;color:var(--muted);font-size:9px;margin-top:4px}.node .kv{margin-top:7px;font-size:10px}.node .kv b{color:var(--muted);font-size:9px}.branches{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;position:relative;padding-top:24px}.branches:before{content:"";position:absolute;top:8px;left:16%;right:16%;border-top:1px solid var(--line)}.branch{position:relative;text-align:center}.branch:before{content:"";position:absolute;left:50%;top:-16px;height:16px;border-left:1px solid var(--line)}.subbranches{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:14px;position:relative;padding-top:18px}.subbranches:before{content:"";position:absolute;top:7px;left:25%;right:25%;border-top:1px solid var(--line)}.sub{position:relative}.sub:before{content:"";position:absolute;left:50%;top:-11px;height:11px;border-left:1px solid var(--line)}.size{display:inline-block;margin-top:7px;border:1px solid var(--line);padding:2px 5px;font-size:9px}.size.q{color:var(--amber)}.size.h{color:var(--cyan)}.size.n{color:var(--red)}.footer{margin-top:30px;border-top:1px solid var(--line);padding:18px 0 30px;color:var(--muted);font-size:9px}.demo{color:var(--amber)}@media(max-width:900px){.top{grid-template-columns:1fr}.meta{text-align:left}.s3,.s4,.s6{grid-column:span 12}.split,.explain{grid-template-columns:1fr}.explain>div{border-right:0;border-bottom:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<div class="shell">
+<header class="top">
+<div><div class="kicker">STOCK_EVAL_REPORT // V2 STRUCTURED REPORT DEMO</div><h1>INTC · EVIDENCE-CHAIN RESEARCH REPORT</h1><span class="tag warn">READY_CONDITIONAL</span><span class="tag warn">DEMO / PARTIALLY MOCKED</span><span class="tag">$10,000 SIMULATION</span></div>
+<div class="meta">RUN INTC_V2_DEMO<br>AS_OF 2026-08-12<br>PRICE_REF $97.71<br>CANONICAL SOURCE structured_report.json</div>
+</header>
+<nav class="nav"><a href="#summary">SUMMARY</a><a href="#kelly">KELLY / POSITION</a><a href="#intraday">INTRADAY TREE</a><a href="#short">SHORT TERM</a><a href="#long">LONG TERM</a><a href="#evidence">EVIDENCE</a></nav>
+
+<section id="summary" class="section">
+<div class="section-head"><div class="section-title">00 / RESEARCH POSTURE</div><div class="status">ILLUSTRATIVE DATA · UI/STRUCTURE EXAMPLE</div></div>
+<div class="grid">
+<div class="cell s6"><div class="label">HEADLINE</div><div style="margin-top:6px">高波動下仍可給倉位尺度，但應把 Kelly edge 與 current RV 風險分開；日內只在價格分支被確認後提高 sizing tier。</div></div>
+<div class="cell s6"><div class="label">WHY THIS EXAMPLE EXISTS</div><div style="margin-top:6px">展示新版 structured JSON → HTML：Kelly full/half/quarter、$10k notional/股數、RV 風險、binding caps，以及日內/短期/長期三棵 scenario tree。</div></div>
+<div class="cell s3 metric"><div class="label">PRICE REF</div><div class="value">$97.71</div><div class="sub">illustrative prior-close reference</div></div>
+<div class="cell s3 metric"><div class="label">RV20 ANN.</div><div class="value">80.8%</div><div class="sub">daily sigma ≈ 5.09%</div></div>
+<div class="cell s3 metric"><div class="label">GUIDE</div><div class="value">3.54%</div><div class="sub">quarter Kelly after RV overlay</div></div>
+<div class="cell s3 metric"><div class="label">$10K NOTIONAL</div><div class="value">$354</div><div class="sub">≈ 3.62 fractional shares</div></div>
+</div>
+<div class="note"><b>DEMO NOTE //</b> 部分數字為 mock，用來驗證 UI 與資料結構；它不是最新 INTC 投資結論。正式報告的相同欄位由 deterministic artifacts 填入，而不是 HTML 自行推導。</div>
+</section>
+
+<section id="kelly" class="section">
+<div class="section-head"><div class="section-title">01 / KELLY → POSITION GUIDANCE</div><div class="status">DEFAULT ACCOUNT = $10,000</div></div>
+<div class="panel"><div class="panel-head">CALCULATION CHAIN / 計算鏈</div><div class="panel-body">
+<div class="formula">p = 57%\nb = avg_win / avg_loss = 1.70\nformula Kelly = (p*b - (1-p)) / b = 31.7%\nempirical log-growth Kelly = 22.0%\nselected base edge = min(positive empirical, positive formula) = 22.0%\ncurrent RV20 = 80.8% ; historical RV reference = 52.0%\nRV haircut = min(1, 52.0 / 80.8) = 0.643\npost-overlay Kelly = 22.0% × 0.643 = 14.15%\nFULL = 14.15% ; HALF = 7.08% ; QUARTER = 3.54%\nthen apply concentration / stop-risk / liquidity caps</div>
+<div class="note"><b>SETUP STATUS //</b> <span class="warntxt">PROXY / CONDITIONAL</span>. 這個 demo 假設當前 setup 與歷史樣本不是完全同一個 setup，因此仍提供尺度，但不把它叫 validated Kelly。</div>
+</div></div>
+
+<div class="panel"><div class="panel-head">$10,000 POSITION LADDER</div><div class="panel-body">
+<table><thead><tr><th>VARIANT</th><th>POST-OVERLAY</th><th>FINAL NAV</th><th>NOTIONAL</th><th>SHARES @97.71</th><th>1D 1σ NAV</th><th>1D 1σ $</th><th>STOP @94.20</th><th>BINDING</th></tr></thead><tbody>
+<tr><td>FULL</td><td>14.15%</td><td>5.00%</td><td>$500</td><td>5.12</td><td>0.255%</td><td>$25.5</td><td>-$18.0</td><td>5% concentration</td></tr>
+<tr><td>HALF</td><td>7.08%</td><td>5.00%</td><td>$500</td><td>5.12</td><td>0.255%</td><td>$25.5</td><td>-$18.0</td><td>5% concentration</td></tr>
+<tr class="guide-row"><td><b>QUARTER ← GUIDE</b></td><td>3.54%</td><td><b>3.54%</b></td><td><b>$354</b></td><td><b>3.62</b></td><td><b>0.180%</b></td><td><b>$18.0</b></td><td><b>-$12.7</b></td><td>Kelly</td></tr>
+</tbody></table>
+</div></div>
+
+<div class="panel"><div class="panel-head">KELLY POSITION LADDER / THEORETICAL VS FINAL</div><div class="bars">
+<div class="bar-row"><div>FULL</div><div class="track"><div class="fill warn" style="width:100%"></div></div><div>14.15% → 5%</div></div>
+<div class="bar-row"><div>HALF</div><div class="track"><div class="fill warn" style="width:50%"></div></div><div>7.08% → 5%</div></div>
+<div class="bar-row"><div>QUARTER</div><div class="track"><div class="fill final" style="width:25%"></div></div><div>3.54% → 3.54%</div></div>
+</div><div class="explain">
+<div><div class="xk">WHAT</div><div class="xv">Kelly edge 經 current-RV overlay 後的 full/half/quarter。</div><div class="xo">Observed: full/half 都被 5% concentration cap 截斷。</div></div>
+<div><div class="xk">READ</div><div class="xv">不要把 full Kelly 當建議倉位；先看哪個 portfolio constraint 真正 binding。</div><div class="xo">Current read: quarter 是唯一未被 cap 壓平的保守檔。</div></div>
+<div><div class="xk">WHY</div><div class="xv">Edge 決定理論比例；RV 決定今天同樣 notional 有多危險。</div><div class="xo">80.8% RV 讓 $354 倉位仍有約 $18 的單日 1σ 波動。</div></div>
+<div><div class="xk">LIMIT</div><div class="xv">若 setup mismatch 或 sample 很小，這只能是 proxy/conditional guidance。</div><div class="xo">正式報告應同時顯示 setup/sample confidence。</div></div>
+</div></div>
+</section>
+
+<section id="intraday" class="section">
+<div class="section-head"><div class="section-title">02 / INTRADAY SCENARIO TREE</div><div class="status">PREMARKET → OPEN → REACTION</div></div>
+<div class="panel"><div class="panel-head">PREMARKET CHECKLIST</div><div class="panel-body split"><div><b>PRICE / STRUCTURE</b><br><span class="muted">prior close 97.71 · R1 99.20 · R2 102.00 · S1 95.30 · S2 92.80</span></div><div><b>AFTER OPEN</b><br><span class="muted">build ORH/ORL · VWAP acceptance · reclaim/fail of R1/S1 · volume response</span></div></div></div>
+<div class="panel"><div class="panel-head">BRANCHING MIND MAP / 分叉思維圖</div><div class="tree-wrap"><div class="tree">
+<div class="tree-root"><div class="node"><strong>OPEN / 開盤</strong><small>先判斷 gap 與 prior close / R1 / S1 的相對位置</small><div class="kv"><b>SIZE //</b> WAIT</div></div></div>
+<div class="branches">
+<div class="branch"><div class="node"><strong>GAP UP / 高開</strong><small>open > prior close；若 >R1 則進一步觀察 acceptance</small></div><div class="subbranches">
+<div class="sub"><div class="node"><strong class="goodtxt">ACCEPT / 衝高延續</strong><div class="kv"><b>IF //</b> ORH above R1 → VWAP hold → retest R1 holds</div><div class="kv"><b>THEN //</b> higher-low / R2 test</div><div class="kv"><b>INVALID //</b> lose VWAP + R1 reclaim fails</div><span class="size q">SIZE: QUARTER → HALF only after confirmation</span></div></div>
+<div class="sub"><div class="node"><strong class="badtxt">FADE / 衝高回落</strong><div class="kv"><b>IF //</b> gap loses R1/VWAP/prior close</div><div class="kv"><b>THEN //</b> reassess near S1</div><div class="kv"><b>INVALID //</b> strong reclaim of failed level</div><span class="size n">SIZE: NONE / WAIT</span></div></div>
+</div></div>
+<div class="branch"><div class="node"><strong>NEAR FLAT / 平開</strong><small>open around prior close；避免用第一根 bar 強行判方向</small></div><div class="subbranches">
+<div class="sub"><div class="node"><strong class="goodtxt">BREAK UP</strong><div class="kv"><b>IF //</b> ORH break + VWAP above + R1 acceptance</div><div class="kv"><b>THEN //</b> follow-through to R2</div><span class="size q">SIZE: QUARTER</span></div></div>
+<div class="sub"><div class="node"><strong>RANGE / 壓縮</strong><div class="kv"><b>IF //</b> ORL &lt; price &lt; ORH</div><div class="kv"><b>THEN //</b> wait for hold outside range</div><span class="size n">SIZE: NONE</span></div></div>
+</div></div>
+<div class="branch"><div class="node"><strong>GAP DOWN / 低開</strong><small>open below prior close；先分 acceptance 還是 reversal</small></div><div class="subbranches">
+<div class="sub"><div class="node"><strong class="badtxt">ACCEPT / 弱勢延續</strong><div class="kv"><b>IF //</b> S1 failed → VWAP rejected</div><div class="kv"><b>THEN //</b> test S2</div><span class="size n">SIZE: NONE for long setup</span></div></div>
+<div class="sub"><div class="node"><strong class="goodtxt">REVERSAL / 低開反轉</strong><div class="kv"><b>IF //</b> reclaim S1 → VWAP → ORH retest holds</div><div class="kv"><b>THEN //</b> reversal setup only, not trend proof</div><span class="size q">SIZE: QUARTER</span></div></div>
+</div></div>
+</div></div></div>
+<div class="explain">
+<div><div class="xk">WHAT</div><div class="xv">把開盤結果先分高開/平開/低開，再看 acceptance / fade / reversal。</div><div class="xo">每個葉節點都有 IF / THEN / INVALID / SIZE。</div></div>
+<div><div class="xk">READ</div><div class="xv">盤前不是預測開盤方向，而是先定義看到不同價格反應時怎麼處理。</div><div class="xo">真正提高 sizing tier 的是確認，而不是 gap 本身。</div></div>
+<div><div class="xk">WHY</div><div class="xv">同一個 gap-up 可以是 continuation，也可以是 liquidity fade；兩者風險動作相反。</div><div class="xo">Tree 強迫研究層保留替代路徑。</div></div>
+<div><div class="xk">LIMIT</div><div class="xv">若沒有 same-session ORH/ORL/VWAP，tree 只能是 pre-open plan。</div><div class="xo">不能把 prior-day levels 寫成「今日已確認」。</div></div>
+</div></div>
+</section>
+
+<section id="short" class="section">
+<div class="section-head"><div class="section-title">03 / SHORT-TERM TREE · DAYS–WEEKS</div><div class="status">STRUCTURE REPAIR / DIGEST / BREAK</div></div>
+<div class="panel"><div class="tree-wrap"><div class="tree"><div class="tree-root"><div class="node"><strong>NEXT DAYS–WEEKS</strong><small>問題：短期價格結構是在修復、消化，還是惡化？</small></div></div><div class="branches">
+<div class="branch"><div class="node"><strong class="goodtxt">REPAIR / 修復</strong><div class="kv"><b>IF //</b> close reclaims EMA20/R1 and next session holds</div><div class="kv"><b>WATCH //</b> RV contraction · higher lows · SMA50 test</div><div class="kv"><b>SIZE //</b> quarter → half only if setup confidence improves</div></div></div>
+<div class="branch"><div class="node"><strong>RANGE / 消化</strong><div class="kv"><b>IF //</b> S1 &lt; close &lt; R1 for multiple sessions</div><div class="kv"><b>WATCH //</b> catalyst digestion · volatility compression</div><div class="kv"><b>SIZE //</b> keep conservative / no forced increase</div></div></div>
+<div class="branch"><div class="node"><strong class="badtxt">BREAKDOWN / 走弱</strong><div class="kv"><b>IF //</b> S1 fails and recovery attempt is rejected</div><div class="kv"><b>WATCH //</b> S2 · RV expansion · volume stress</div><div class="kv"><b>SIZE //</b> reduce / no new risk until reset</div></div></div>
+</div></div></div></div>
+</section>
+
+<section id="long" class="section">
+<div class="section-head"><div class="section-title">04 / LONG-TERM TREE · QUARTERS+</div><div class="status">BUSINESS ECONOMICS / VALUATION / CAPITAL</div></div>
+<div class="panel"><div class="tree-wrap"><div class="tree"><div class="tree-root"><div class="node"><strong>LONG-TERM THESIS</strong><small>問題：未來數季的營運證據讓 thesis 強化、混合，還是失效？</small></div></div><div class="branches">
+<div class="branch"><div class="node"><strong class="goodtxt">STRENGTHEN</strong><div class="kv"><b>IF //</b> product operating leverage + foundry loss narrows + external adoption evidence improves</div><div class="kv"><b>VALUATION //</b> multiple can be defended by improving cash economics</div><div class="kv"><b>ACTION //</b> allow long-horizon thesis confidence to rise</div></div></div>
+<div class="branch"><div class="node"><strong>MIXED</strong><div class="kv"><b>IF //</b> product recovery continues but foundry/capex/FCF remain unresolved</div><div class="kv"><b>VALUATION //</b> upside depends on execution rather than current earnings alone</div><div class="kv"><b>ACTION //</b> keep conditional state; demand new evidence</div></div></div>
+<div class="branch"><div class="node"><strong class="badtxt">WEAKEN</strong><div class="kv"><b>IF //</b> foundry economics deteriorate, capital needs rise, or product leverage stalls</div><div class="kv"><b>VALUATION //</b> thesis no longer supports premium assumption</div><div class="kv"><b>ACTION //</b> downgrade / invalidate long-horizon thesis</div></div></div>
+</div></div></div></div>
+<div class="note"><b>KNOWLEDGE //</b> 日內 tree 用價格與 microstructure；長期 tree 用營運、資本效率與估值。不要用 ORH/VWAP 去證明季度級 thesis，也不要用長期 TAM 去忽略日內止損。</div>
+</section>
+
+<section id="evidence" class="section">
+<div class="section-head"><div class="section-title">05 / EVIDENCE & OUTPUT CONTRACT</div><div class="status">STRUCTURED FIRST</div></div>
+<div class="grid">
+<div class="cell s4"><div class="label">CANONICAL</div><div style="margin-top:6px">structured_report.json</div><div class="muted" style="margin-top:6px">Kelly metrics, scenario_trees, judgments, chart interpretation, evidence status.</div></div>
+<div class="cell s4"><div class="label">RENDERERS</div><div style="margin-top:6px">JSON → Markdown<br>JSON → HTML</div><div class="muted" style="margin-top:6px">HTML never parses MD for semantics.</div></div>
+<div class="cell s4"><div class="label">PACKAGE</div><div style="margin-top:6px">evidence-chain-report.zip</div><div class="muted" style="margin-top:6px">raw evidence + deterministic artifacts + structured JSON + MD + HTML + manifest + checksums.</div></div>
+</div>
+</section>
+
+<footer class="footer">DEMO ONLY · PARTIALLY MOCKED DATA · NOT A LIVE INTC RECOMMENDATION · DESIGN TARGET FOR skill/scripts/render_html_report.py</footer>
+</div>
+</body>
+</html>
