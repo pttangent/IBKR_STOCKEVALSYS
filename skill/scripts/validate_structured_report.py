@@ -13,7 +13,7 @@ REQUIRED_INTERPRETATION = {"what", "what_observed", "read", "read_result", "why"
 REQUIRED_SCENARIO_NODE = {"id", "label", "trigger", "watch", "interpretation", "response", "invalidation", "action_boundary", "sizing_tier", "price_reference", "price_anchors", "children"}
 REQUIRED_PRICE_ANCHOR = {"id", "label", "value", "role", "source", "method", "confidence", "status"}
 SIZING_TIERS = {"none", "quarter", "half", "full_diagnostic", "risk_only"}
-LONG_TERM_TECHNICAL_TOKENS = ("現價", "價格", "股價", "支撐", "阻力", "壓力", "EMA", "SMA", "VWAP", "ORH", "ORL", "ATR", "突破", "跌破", "回踩", "反抽", "收復", "前高", "前低")
+LONG_TERM_TECHNICAL_TOKENS = ("現價", "股價", "支撐", "阻力", "壓力", "EMA", "SMA", "VWAP", "ORH", "ORL", "ATR", "突破", "跌破", "回踩", "反抽", "收復", "前高", "前低")
 
 
 def _parse_time(value):
@@ -70,13 +70,13 @@ def _validate_scenario_node(node: dict, path: str, errors: list[str], *, horizon
             if isinstance(anchor, dict) and anchor.get("id") in reference and reference.get(anchor.get("id")) != anchor.get("value"):
                 errors.append(f"{path} price_reference does not tie to price_anchors for {anchor.get('id')}")
     if horizon == "long_term":
-        searchable = " ".join([
-            str(node.get("trigger") or ""), str(node.get("interpretation") or ""),
-            str(node.get("response") or ""), str(node.get("invalidation") or ""),
-            " ".join(str(x) for x in node.get("watch", []) if x is not None),
-        ])
-        if any(token in searchable for token in LONG_TERM_TECHNICAL_TOKENS):
-            errors.append(f"{path} long-term scenario contains technical price-action condition")
+        # Purity applies to the condition that selects a branch and the KPI watch
+        # list. Explanatory prose may explicitly say that price/VWAP must NOT be
+        # used, and a valuation response may legitimately ask whether price has
+        # already discounted the new economics.
+        causal_inputs = " ".join([str(node.get("trigger") or ""), " ".join(str(x) for x in node.get("watch", []) if x is not None)])
+        if any(token in causal_inputs for token in LONG_TERM_TECHNICAL_TOKENS):
+            errors.append(f"{path} long-term trigger/watch contains technical price-action condition")
         if anchors or node.get("price_reference"):
             errors.append(f"{path} long-term scenario must not carry technical price anchors")
     children = node.get("children", [])
