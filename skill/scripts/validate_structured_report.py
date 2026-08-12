@@ -9,8 +9,24 @@ from pathlib import Path
 STATES = {"RESEARCH_READY", "READY_CONDITIONAL", "WAIT_CONFIRMATION", "NEEDS_EVIDENCE", "RISK_BLOCKED", "MONITOR_ONLY", "THESIS_INVALIDATED"}
 REQUIRED_MODULE = {"title", "status", "freshness_status", "source_artifacts", "missing_fields"}
 REQUIRED_INTERPRETATION = {"what", "what_observed", "read", "read_result", "why", "why_now", "limit", "limit_effect"}
-REQUIRED_SCENARIO_NODE = {"id", "label", "trigger", "watch", "interpretation", "response", "invalidation", "action_boundary", "sizing_tier", "price_reference", "children"}
+REQUIRED_SCENARIO_NODE = {"id", "label", "trigger", "watch", "interpretation", "response", "invalidation", "action_boundary", "sizing_tier", "price_reference", "price_anchors", "children"}
+REQUIRED_PRICE_ANCHOR = {"id", "label", "value", "role", "source", "method", "confidence", "status"}
 SIZING_TIERS = {"none", "quarter", "half", "full_diagnostic", "risk_only"}
+
+
+def _validate_price_anchor(anchor: dict, path: str, errors: list[str]) -> None:
+    if not isinstance(anchor, dict):
+        errors.append(f"{path} must be object")
+        return
+    for key in REQUIRED_PRICE_ANCHOR:
+        if key not in anchor:
+            errors.append(f"{path} missing {key}")
+    value = anchor.get("value")
+    if not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+        errors.append(f"{path} invalid value")
+    for key in ["id", "label", "role", "source", "method", "confidence", "status"]:
+        if key in anchor and not str(anchor.get(key) or "").strip():
+            errors.append(f"{path} empty {key}")
 
 
 def _validate_scenario_node(node: dict, path: str, errors: list[str]) -> None:
@@ -29,6 +45,17 @@ def _validate_scenario_node(node: dict, path: str, errors: list[str]) -> None:
         errors.append(f"{path} watch must be list")
     if not isinstance(node.get("price_reference", {}), dict):
         errors.append(f"{path} price_reference must be object")
+    anchors = node.get("price_anchors", [])
+    if not isinstance(anchors, list):
+        errors.append(f"{path} price_anchors must be list")
+    else:
+        for index, anchor in enumerate(anchors):
+            _validate_price_anchor(anchor, f"{path}.price_anchors[{index}]", errors)
+        reference = node.get("price_reference", {})
+        for anchor in anchors:
+            if isinstance(anchor, dict) and anchor.get("id") in reference:
+                if reference.get(anchor.get("id")) != anchor.get("value"):
+                    errors.append(f"{path} price_reference does not tie to price_anchors for {anchor.get('id')}")
     children = node.get("children", [])
     if not isinstance(children, list):
         errors.append(f"{path} children must be list")
@@ -100,6 +127,10 @@ def validate(data: dict) -> list[str]:
                 if key not in tree:
                     errors.append(f"module {name} scenario tree {index} missing {key}")
             _validate_scenario_node(tree.get("root", {}), f"module {name} scenario tree {tree.get('id', index)}.root", errors)
+            if tree.get("horizon") == "intraday":
+                anchor_ids = {a.get("id") for a in tree.get("anchor_book", []) if isinstance(a, dict)}
+                if "PRIOR_CLOSE" in anchor_ids:
+                    errors.append("intraday scenario tree must not use prior close as structural anchor")
         if name == "risk":
             _validate_kelly_guidance(module, errors)
         missing = module.get("missing_fields", [])
