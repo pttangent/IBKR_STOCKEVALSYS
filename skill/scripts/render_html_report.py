@@ -27,6 +27,117 @@ CSS = r'''
 :root{--bg:#0a0a0a;--fg:#fafafa;--muted:#a1a1aa;--border:#262626;--soft:#171717;--good:#22c55e;--bad:#ef4444;--warn:#f59e0b;--cyan:#22d3ee;--purple:#a78bfa;--blue:#60a5fa}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--fg);font-family:"Space Mono","JetBrains Mono","Noto Sans TC",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;line-height:1.58}.shell{max-width:1520px;margin:auto;padding:20px}.top{border-bottom:1px solid var(--border);padding:12px 0 18px;display:grid;grid-template-columns:1fr auto;gap:20px;align-items:end}.kicker,.label,.panel-title,.chart-title{letter-spacing:.08em;font-weight:700}.kicker{font-size:11px;color:var(--muted)}h1{font-size:28px;line-height:1.15;margin:5px 0 0}.meta{text-align:right;color:var(--muted);font-size:11px}.state{display:inline-block;padding:4px 8px;border:1px solid var(--border);color:var(--fg);margin-top:6px}.state.good{color:var(--good);border-color:#14532d}.state.warn{color:var(--warn);border-color:#713f12}.nav{position:sticky;top:0;z-index:10;background:#0a0a0af2;border-bottom:1px solid var(--border);padding:8px 0;white-space:nowrap;overflow:auto}.nav a{color:var(--muted);text-decoration:none;margin-right:18px;font-size:11px}.nav a:hover{color:var(--fg)}.grid12{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:0;border-left:1px solid var(--border);border-top:1px solid var(--border);margin-top:18px}.cell{border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:14px}.span3{grid-column:span 3}.span4{grid-column:span 4}.span6{grid-column:span 6}.span12{grid-column:span 12}.metric .label{font-size:10px;color:var(--muted)}.metric .value{font-size:21px;font-weight:700;margin-top:6px}.module{margin-top:28px;border-top:1px solid var(--border)}.module-head{display:flex;justify-content:space-between;gap:16px;border-bottom:1px solid var(--border);padding:12px 0}.panel-title{font-size:14px}.statusline{font-size:10px;color:var(--muted)}.body-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));border-left:1px solid var(--border)}.panel{grid-column:span 12;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:16px}.panel h3{font-size:12px;letter-spacing:.08em;margin:0 0 12px}.muted{color:var(--muted)}.block{margin:0 0 14px}.block p{margin:0 0 8px}.block ul{padding-left:18px}.judgment{border-left:2px solid var(--fg);padding:8px 12px;margin:10px 0;background:#111}.judgment .jlabel{color:var(--muted);font-size:10px}.knowledge{border:1px solid #3f3f46;background:#101010;padding:12px;margin:10px 0}.knowledge .kt{color:var(--warn);font-size:10px;font-weight:700;letter-spacing:.08em}.chart-wrap{border:1px solid var(--border);margin:12px 0 20px;background:#080808}.chart-title{padding:10px 12px;border-bottom:1px solid var(--border);font-size:11px}.chart{min-height:280px}.explain{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--border)}.explain>div{padding:10px;border-right:1px solid var(--border)}.explain>div:last-child{border-right:0}.explain .xk{font-size:9px;color:var(--muted);letter-spacing:.08em;font-weight:700}.explain .xv{font-size:11px;margin-top:5px}.explain .xo{font-size:10px;color:#d4d4d8;border-top:1px dotted #333;margin-top:7px;padding-top:7px}.missing{color:var(--warn)}table{border-collapse:collapse;width:100%;font-size:11px}th,td{border:1px solid var(--border);padding:7px;text-align:left;vertical-align:top}th{color:var(--muted)}.kelly-status{display:flex;flex-wrap:wrap;gap:0;border-left:1px solid var(--border);border-top:1px solid var(--border);margin-bottom:14px}.kelly-status>div{min-width:150px;flex:1;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:10px}.kelly-status .k{font-size:9px;color:var(--muted);letter-spacing:.08em}.kelly-status .v{font-size:16px;font-weight:700;margin-top:4px}.kelly-guide{color:var(--good)}.kelly-table td:first-child{font-weight:700}.kelly-table tr.guide td{border-top:2px solid var(--good);border-bottom:2px solid var(--good)}.scenario-wrap{overflow-x:auto;padding:8px 0 18px}.scenario-meta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;color:var(--muted);font-size:10px}.scenario-meta span{border:1px solid var(--border);padding:3px 6px}.anchor-legend{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 14px}.anchor-legend span{font-size:9px;border:1px solid var(--border);padding:3px 6px}.tree{min-width:max-content;padding:8px 18px}.tree ul{padding-top:22px;position:relative;display:flex;justify-content:center;margin:0;padding-left:0}.tree li{list-style:none;text-align:center;position:relative;padding:22px 7px 0}.tree li::before,.tree li::after{content:'';position:absolute;top:0;right:50%;border-top:1px solid #3f3f46;width:50%;height:22px}.tree li::after{right:auto;left:50%;border-left:1px solid #3f3f46}.tree li:only-child::after,.tree li:only-child::before{display:none}.tree li:only-child{padding-top:0}.tree li:first-child::before,.tree li:last-child::after{border:0 none}.tree li:last-child::before{border-right:1px solid #3f3f46}.tree ul ul::before{content:'';position:absolute;top:0;left:50%;border-left:1px solid #3f3f46;width:0;height:22px}.tree-card{width:248px;display:inline-block;text-align:left;vertical-align:top;border:1px solid #3f3f46;background:#0f0f0f;padding:10px;white-space:normal}.tree-card.root{border-color:var(--cyan)}.tree-label{font-weight:700;font-size:11px;letter-spacing:.03em}.tree-trigger{font-size:10px;margin-top:7px}.tree-trigger b,.tree-response b{color:var(--warn)}.tree-response{font-size:10px;margin-top:7px}.tree-anchors{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}.price-anchor{display:inline-flex;gap:4px;align-items:center;border:1px solid #3f3f46;padding:3px 5px;font-size:9px;background:#0b0b0b}.price-anchor .p{font-weight:800}.price-anchor.support,.price-anchor.intraday_support,.price-anchor.volume_node_support{color:var(--good);border-color:#14532d}.price-anchor.resistance,.price-anchor.intraday_resistance,.price-anchor.volume_node_resistance{color:var(--bad);border-color:#7f1d1d}.price-anchor.intraday{color:var(--cyan);border-color:#155e75}.price-anchor.moving_average{color:var(--purple);border-color:#5b21b6}.price-anchor.volatility{color:var(--warn);border-color:#713f12}.price-anchor.current{color:var(--fg);border-color:#737373}.tree-ref{border:1px solid #333;padding:2px 4px;font-size:9px;color:#d4d4d8}.tree-tier{display:inline-block;margin-top:8px;padding:2px 5px;border:1px solid #3f3f46;font-size:9px;color:var(--muted)}.tree-tier.quarter,.tree-tier.half{color:var(--good);border-color:#14532d}.tree-tier.none{color:var(--muted)}.tree-card details{border-top:1px dotted #333;margin-top:8px;padding-top:7px;font-size:9px;color:#d4d4d8}.tree-card summary{cursor:pointer;color:var(--muted)}.tree-detail{margin-top:6px}.tree-detail b{color:var(--muted)}.footer{border-top:1px solid var(--border);margin-top:32px;padding:16px 0 30px;color:var(--muted);font-size:10px}@media(max-width:900px){.shell{padding:12px}.top{grid-template-columns:1fr}.meta{text-align:left}.span3,.span4,.span6{grid-column:span 12}.explain{grid-template-columns:1fr}.explain>div{border-right:0;border-bottom:1px solid var(--border)}.explain>div:last-child{border-bottom:0}.tree{min-width:0}.tree ul{display:block;padding:0}.tree ul ul::before,.tree li::before,.tree li::after{display:none}.tree li{padding:5px 0}.tree-card{width:100%;display:block}}
 '''
 
+CSS += r'''
+.scenario-toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0 6px;color:var(--muted);font-size:10px}.scenario-toolbar button{border:1px solid var(--border);background:#111;color:var(--fg);padding:5px 9px;font:inherit;cursor:pointer}.scenario-toolbar button:hover{border-color:var(--cyan);color:var(--cyan)}.scenario-toolbar .scenario-hint{margin-left:4px}.scenario-viewport{position:relative;height:560px;overflow:hidden;border:1px solid var(--border);background:#080808;touch-action:none;cursor:grab;user-select:none}.scenario-viewport.is-panning{cursor:grabbing}.scenario-canvas{display:inline-block;min-width:max-content;transform-origin:0 0;padding:2px}.scenario-wrap{overflow:visible;padding:8px 0 18px}.scenario-viewport details,.scenario-viewport summary{user-select:text}.scenario-viewport .tree-card{user-select:text}.tree-children.collapsed{display:none}.tree-toggle{display:block;margin-top:8px;border:1px solid #3f3f46;background:#111;color:var(--muted);padding:3px 6px;font:inherit;font-size:9px;cursor:pointer}.tree-toggle:hover{color:var(--cyan);border-color:var(--cyan)}@media(max-width:900px){.scenario-viewport{height:620px}.scenario-canvas{min-width:100%;width:100%}}
+'''
+
+SCENARIO_INTERACTION_JS = r'''
+(() => {
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+  const init = (panel) => {
+    const viewport = panel.querySelector('[data-scenario-viewport]');
+    const canvas = panel.querySelector('[data-scenario-canvas]');
+    if (!viewport || !canvas) return;
+    let scale = 1;
+    let x = 14;
+    let y = 14;
+    let pointer = null;
+    let moved = false;
+    const apply = () => {
+      canvas.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+      const label = panel.querySelector('[data-scenario-zoom-label]');
+      if (label) label.textContent = `${Math.round(scale * 100)}%`;
+    };
+    const zoomAt = (nextScale, clientX, clientY) => {
+      const rect = viewport.getBoundingClientRect();
+      const px = (clientX - rect.left - x) / scale;
+      const py = (clientY - rect.top - y) / scale;
+      scale = clamp(nextScale, 0.45, 2.5);
+      x = clientX - rect.left - px * scale;
+      y = clientY - rect.top - py * scale;
+      apply();
+    };
+    const fit = () => {
+      const width = Math.max(canvas.scrollWidth, canvas.getBoundingClientRect().width / Math.max(scale, 0.01));
+      scale = clamp((viewport.clientWidth - 28) / Math.max(width, 1), 0.45, 1);
+      x = 14;
+      y = 14;
+      apply();
+    };
+    panel.querySelectorAll('[data-scenario-action]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const action = button.dataset.scenarioAction;
+        if (action === 'in') zoomAt(scale * 1.2, viewport.clientWidth / 2, viewport.clientHeight / 2);
+        if (action === 'out') zoomAt(scale / 1.2, viewport.clientWidth / 2, viewport.clientHeight / 2);
+        if (action === 'fit') fit();
+        if (action === 'reset') { scale = 1; x = 14; y = 14; apply(); }
+        if (action === 'expand') {
+          panel.querySelectorAll('.tree-children').forEach((children) => children.classList.remove('collapsed'));
+          panel.querySelectorAll('[data-tree-toggle]').forEach((button) => { button.setAttribute('aria-expanded', 'true'); button.textContent = '收縮子節點'; });
+        }
+        if (action === 'collapse') {
+          panel.querySelectorAll('.tree-children').forEach((children) => {
+            const collapsed = Number(children.dataset.depth || 0) >= 1;
+            children.classList.toggle('collapsed', collapsed);
+          });
+          panel.querySelectorAll('[data-tree-toggle]').forEach((button) => {
+            const children = button.closest('li')?.querySelector(':scope > .tree-children');
+            const expanded = children ? !children.classList.contains('collapsed') : false;
+            button.setAttribute('aria-expanded', String(expanded));
+            button.textContent = expanded ? '收縮子節點' : '展開子節點';
+          });
+        }
+      });
+    });
+    panel.querySelectorAll('[data-tree-toggle]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const children = button.closest('li')?.querySelector(':scope > .tree-children');
+        if (!children) return;
+        const expanded = children.classList.toggle('collapsed') === false;
+        button.setAttribute('aria-expanded', String(expanded));
+        button.textContent = expanded ? '收縮子節點' : '展開子節點';
+      });
+    });
+    viewport.addEventListener('wheel', (event) => {
+      event.preventDefault();
+      zoomAt(scale * (event.deltaY < 0 ? 1.12 : 0.89), event.clientX, event.clientY);
+    }, { passive: false });
+    viewport.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) return;
+      pointer = { id: event.pointerId, x: event.clientX, y: event.clientY, tx: x, ty: y };
+      moved = false;
+      viewport.setPointerCapture(event.pointerId);
+      viewport.classList.add('is-panning');
+    });
+    viewport.addEventListener('pointermove', (event) => {
+      if (!pointer || event.pointerId !== pointer.id) return;
+      const dx = event.clientX - pointer.x;
+      const dy = event.clientY - pointer.y;
+      if (Math.abs(dx) + Math.abs(dy) > 3) moved = true;
+      x = pointer.tx + dx;
+      y = pointer.ty + dy;
+      apply();
+    });
+    const end = (event) => {
+      if (!pointer || event.pointerId !== pointer.id) return;
+      pointer = null;
+      viewport.classList.remove('is-panning');
+    };
+    viewport.addEventListener('pointerup', end);
+    viewport.addEventListener('pointercancel', end);
+    viewport.addEventListener('dblclick', (event) => zoomAt(scale * 1.25, event.clientX, event.clientY));
+    viewport.addEventListener('keydown', (event) => {
+      if (event.key === '+' || event.key === '=') zoomAt(scale * 1.2, viewport.clientWidth / 2, viewport.clientHeight / 2);
+      if (event.key === '-' || event.key === '_') zoomAt(scale / 1.2, viewport.clientWidth / 2, viewport.clientHeight / 2);
+      if (event.key === '0') { scale = 1; x = 14; y = 14; apply(); }
+    });
+    apply();
+  };
+  document.querySelectorAll('[data-scenario-panel]').forEach(init);
+})();
+'''
+
 MODULE_NAV = {
     "overview": "研究結論", "fundamentals": "基本面", "valuation": "估值", "technical": "技術結構",
     "options": "期權/波動", "governance": "治理", "risk": "風險/倉位", "scenarios": "情景樹", "evidence": "證據鏈",
@@ -261,7 +372,7 @@ def _anchors_html(node: dict) -> str:
     return "<div class='tree-anchors'>" + "".join(f"<span class='tree-ref'>{esc(key)}={money(value,2)}</span>" for key, value in refs.items()) + "</div>"
 
 
-def scenario_node_html(node: dict, root=False) -> str:
+def scenario_node_html(node: dict, root=False, depth=0) -> str:
     watch = node.get("watch", [])
     details = ("<details><summary>展開：觀察 / 解讀 / 失效條件</summary>"
                f"<div class='tree-detail'><b>觀察：</b> {esc(' · '.join(str(x) for x in watch))}</div>"
@@ -269,13 +380,19 @@ def scenario_node_html(node: dict, root=False) -> str:
                f"<div class='tree-detail'><b>失效：</b> {esc(node.get('invalidation'))}</div>"
                f"<div class='tree-detail'><b>行動邊界：</b> {esc(node.get('action_boundary'))}</div></details>")
     tier = str(node.get("sizing_tier") or "none")
+    children = node.get("children", [])
+    toggle = ""
+    if children:
+        initially_expanded = depth < 1
+        toggle = (f"<button type='button' class='tree-toggle' data-tree-toggle aria-expanded='{str(initially_expanded).lower()}'>"
+                  f"{'收縮子節點' if initially_expanded else '展開子節點'}（{len(children)}）</button>")
     card = (f"<div class='tree-card{' root' if root else ''}'><div class='tree-label'>{esc(node.get('label'))}</div>"
             f"<div class='tree-trigger'><b>條件</b> {esc(node.get('trigger'))}</div>{_anchors_html(node)}"
             f"<div class='tree-response'><b>下一步</b> {esc(node.get('response'))}</div>"
-            f"<span class='tree-tier {esc(tier)}'>倉位層級={esc(TIER_LABEL.get(tier,tier))}</span>{details}</div>")
-    children = node.get("children", [])
+            f"<span class='tree-tier {esc(tier)}'>倉位層級={esc(TIER_LABEL.get(tier,tier))}</span>{toggle}{details}</div>")
     if not children: return f"<li>{card}</li>"
-    return f"<li>{card}<ul>{''.join(scenario_node_html(child) for child in children)}</ul></li>"
+    collapsed = " collapsed" if depth >= 1 else ""
+    return f"<li>{card}<ul class='tree-children{collapsed}' data-depth='{depth}'>{''.join(scenario_node_html(child, depth=depth + 1) for child in children)}</ul></li>"
 
 
 def scenario_tree_html(tree: dict) -> str:
@@ -283,7 +400,19 @@ def scenario_tree_html(tree: dict) -> str:
             + (f"<span>開盤區間={esc(tree.get('opening_range_minutes'))} 分鐘</span>" if tree.get("opening_range_minutes") else "")
             + (f"<span>生成方式={esc(tree.get('construction_policy'))}</span>" if tree.get("construction_policy") else "") + "</div>")
     legend = "<div class='anchor-legend'><span class='price-anchor support'>支撐</span><span class='price-anchor resistance'>壓力</span><span class='price-anchor intraday'>當日 VWAP/OR</span><span class='price-anchor moving_average'>均線</span><span class='price-anchor volatility'>ATR/波動帶</span><span class='price-anchor current'>參考/當前價</span></div>"
-    return f"<div class='panel'><h3>{esc(tree.get('title'))}</h3>{meta}{legend}<div class='scenario-wrap'><div class='tree'><ul>{scenario_node_html(tree.get('root',{}),root=True)}</ul></div></div></div>"
+    controls = ("<div class='scenario-toolbar' role='toolbar' aria-label='情景樹檢視控制'>"
+                "<button type='button' data-scenario-action='out' aria-label='縮小'>−</button>"
+                "<button type='button' data-scenario-action='in' aria-label='放大'>＋</button>"
+                "<button type='button' data-scenario-action='fit'>適合寬度</button>"
+                "<button type='button' data-scenario-action='reset'>重置</button>"
+                "<button type='button' data-scenario-action='expand'>展開全部</button>"
+                "<button type='button' data-scenario-action='collapse'>收合至兩層</button>"
+                "<span class='scenario-hint'>預設顯示兩層 · 拖動畫布平移 · 滾輪縮放 · 雙擊放大</span>"
+                "<span data-scenario-zoom-label>100%</span></div>")
+    return (f"<div class='panel' data-scenario-panel><h3>{esc(tree.get('title'))}</h3>{meta}{legend}{controls}"
+            f"<div class='scenario-wrap'><div class='scenario-viewport' data-scenario-viewport tabindex='0' aria-label='可拖動與縮放的情景樹'>"
+            f"<div class='scenario-canvas' data-scenario-canvas><div class='tree'><ul>{scenario_node_html(tree.get('root',{}),root=True)}</ul></div></div>"
+            "</div></div></div>")
 
 
 def main() -> None:
@@ -324,6 +453,7 @@ def main() -> None:
     document = ("<!doctype html><html lang='zh-Hant'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
                 f"<title>{esc(data.get('symbol'))} 股票研究報告</title><style>{CSS}</style><script>{PLOTLY_JS}</script></head><body><div class='shell'>"
                 f"{header}{nav}{summary_html}{''.join(modules)}{limitations}"
+                f"<script>{SCENARIO_INTERACTION_JS}</script>"
                 "<footer class='footer'>語義來源：structured_report.json · 未提供帳戶規模時預設以 $10,000 模擬 · HTML 僅為呈現層 · 非自動交易指令</footer></div></body></html>")
     Path(args.output).write_text(document, encoding="utf-8"); print(json.dumps({"written": args.output, "modules": sorted(selected)}, ensure_ascii=False))
 

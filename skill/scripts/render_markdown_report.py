@@ -162,7 +162,7 @@ def main() -> None:
     summary = data.get("summary", {})
     if summary:
         lines += ["\n## 执行摘要"]
-        for key, label in [("headline", "摘要"), ("thesis", "核心主线"), ("variant_perception", "市场预期差"), ("primary_horizon", "主要观察期限")]:
+        for key, label in [("headline", "摘要"), ("thesis", "核心主線"), ("variant_perception", "差異化判斷"), ("primary_horizon", "研究時間軸")]:
             if summary.get(key):
                 lines.append(f"**{label}:** {summary[key]}")
         if summary.get("key_risks"):

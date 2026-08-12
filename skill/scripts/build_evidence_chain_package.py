@@ -29,6 +29,7 @@ def main() -> None:
     ap.add_argument("--run-dir", required=True)
     ap.add_argument("--structured-report", default="structured_report.json")
     ap.add_argument("--zip")
+    ap.add_argument("--export-dir", help="Directory for exported ZIP packages; defaults to outputs/export/<as-of>")
     ap.add_argument("--modules")
     args = ap.parse_args()
 
@@ -53,7 +54,9 @@ def main() -> None:
         command += ["--modules", args.modules]
     run_cmd(command)
 
-    zip_path = Path(args.zip).resolve() if args.zip else run.parent / f"{run_id}_evidence_chain_report_package.zip"
+    export_dir = (Path(args.export_dir).resolve() if args.export_dir else run.parent / "export" / str(data.get("as_of") or run_id.rsplit("_", 1)[-1]))
+    export_dir.mkdir(parents=True, exist_ok=True)
+    zip_path = Path(args.zip).resolve() if args.zip else export_dir / f"{run_id}_evidence_chain_report_package.zip"
     excluded = {zip_path.resolve()}
     files: list[Path] = []
     for path in sorted(run.rglob("*")):
