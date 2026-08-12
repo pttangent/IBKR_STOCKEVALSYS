@@ -51,6 +51,7 @@
         "knowledge_notes": {"type": "array", "items": {"$ref": "#/$defs/knowledge_note"}},
         "charts": {"type": "array", "items": {"$ref": "#/$defs/chart"}},
         "tables": {"type": "array", "items": {"type": "object"}},
+        "scenario_trees": {"type": "array", "items": {"$ref": "#/$defs/scenario_tree"}},
         "limitations": {"type": "array", "items": {"type": "string"}}
       },
       "additionalProperties": true
@@ -117,6 +118,38 @@
             "limit_effect": {"type": "string"}
           }
         }
+      },
+      "additionalProperties": true
+    },
+    "scenario_tree": {
+      "type": "object",
+      "required": ["id", "horizon", "title", "evidence_status", "root"],
+      "properties": {
+        "id": {"type": "string"},
+        "horizon": {"enum": ["intraday", "short_term", "long_term"]},
+        "title": {"type": "string"},
+        "evidence_status": {"type": "string"},
+        "opening_range_minutes": {"type": ["integer", "null"]},
+        "root": {"$ref": "#/$defs/scenario_node"}
+      },
+      "additionalProperties": true
+    },
+    "scenario_node": {
+      "type": "object",
+      "required": ["id", "label", "trigger", "watch", "interpretation", "response", "invalidation", "action_boundary", "sizing_tier", "price_reference", "children"],
+      "properties": {
+        "id": {"type": "string"},
+        "label": {"type": "string"},
+        "trigger": {"type": "string"},
+        "watch": {"type": "array", "items": {"type": "string"}},
+        "interpretation": {"type": "string"},
+        "response": {"type": "string"},
+        "invalidation": {"type": "string"},
+        "action_boundary": {"type": "string"},
+        "sizing_tier": {"enum": ["none", "quarter", "half", "full_diagnostic", "risk_only"]},
+        "price_reference": {"type": "object"},
+        "probability": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "children": {"type": "array", "items": {"$ref": "#/$defs/scenario_node"}}
       },
       "additionalProperties": true
     }
