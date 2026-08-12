@@ -1,0 +1,53 @@
+{
+  "schema_version": "2.1-demo",
+  "run_id": "INTC_V2_DEMO",
+  "symbol": "INTC",
+  "as_of": "2026-08-12",
+  "research_state": "READY_CONDITIONAL",
+  "demo": true,
+  "demo_note": "Partially mocked values for UI and structured-report demonstration only; not a live INTC conclusion.",
+  "summary": {
+    "headline": "High current realized volatility compresses usable exposure; position sizing remains conditional on setup confirmation.",
+    "primary_horizon": "intraday + days/weeks + quarters"
+  },
+  "modules": {
+    "risk": {
+      "metrics": {
+        "position_guidance": {
+          "simulation_label": "$10,000 SIMULATION",
+          "portfolio_value": 10000,
+          "price_reference": 97.71,
+          "current_realized_vol_20d_annualized": 0.808,
+          "daily_sigma": 0.0509,
+          "guidance_status": "proxy_conditional",
+          "guidance_variant": "quarter",
+          "guidance_fraction": 0.0354,
+          "guidance_notional_dollars": 354,
+          "variants": {
+            "full": {"post_overlay_fraction": 0.1415, "final_fraction": 0.05, "notional_dollars": 500, "exact_fractional_shares": 5.12, "one_day_sigma_nav": 0.00255, "binding_constraint": "concentration_cap"},
+            "half": {"post_overlay_fraction": 0.0708, "final_fraction": 0.05, "notional_dollars": 500, "exact_fractional_shares": 5.12, "one_day_sigma_nav": 0.00255, "binding_constraint": "concentration_cap"},
+            "quarter": {"post_overlay_fraction": 0.0354, "final_fraction": 0.0354, "notional_dollars": 354, "exact_fractional_shares": 3.62, "one_day_sigma_nav": 0.00180, "binding_constraint": "kelly"}
+          }
+        },
+        "kelly": {
+          "p_win_rate": 0.57,
+          "b_avg_win_over_avg_loss": 1.70,
+          "formula_kelly_fraction": 0.317,
+          "empirical_log_growth_kelly_fraction": 0.22,
+          "selected_base_edge_fraction": 0.22,
+          "rv_reference": 0.52,
+          "rv_haircut": 0.643,
+          "post_overlay_kelly_fraction": 0.1415,
+          "setup_match": "proxy_conditional"
+        }
+      }
+    },
+    "scenarios": {
+      "scenario_trees": [
+        {"horizon": "intraday", "root": "OPEN", "branches": ["gap_up -> acceptance|fade", "near_flat -> break_up|range", "gap_down -> acceptance|reversal"]},
+        {"horizon": "short_term", "root": "DAYS_WEEKS", "branches": ["repair", "range", "breakdown"]},
+        {"horizon": "long_term", "root": "QUARTERS_PLUS", "branches": ["strengthen", "mixed", "weaken"]}
+      ]
+    }
+  }
+}
