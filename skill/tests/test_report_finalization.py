@@ -77,6 +77,10 @@ class ReportFinalizationTests(unittest.TestCase):
             modules = {name: self._module(name) for name in ("technical", "options", "risk", "scenarios")}
             modules["technical"]["module_as_of"] = "2026-08-12"
             modules["options"]["missing_fields"] = ["positive_open_interest", "dealer_sign"]
+            modules["options"]["evidence_resolution"] = [
+                {"field": "positive_open_interest", "status": "NOT_AVAILABLE_AT_CUTOFF", "attempts": []},
+                {"field": "dealer_sign", "status": "NOT_AVAILABLE_AT_CUTOFF", "attempts": []},
+            ]
             modules["options"]["metrics"] = {"gamma": {"data_quality": {"rows_with_positive_open_interest": 12}}}
             modules["risk"]["metrics"] = {
                 "kelly": self._kelly(),
