@@ -1,190 +1,195 @@
-# Report quality, freshness, and modular HTML output
+# Report quality, structured output, and evidence-chain packaging
 
-This reference governs reader-facing reports after deterministic calculations are complete. It was distilled from audits of real report/evidence bundles: a strong research method is not enough if the rendered report mixes stale fundamentals with fresh prices, hides missing fields as zero, or overstates the evidence level of an options/timing module.
+This reference governs reader-facing reports after deterministic calculations are complete. It is distilled from audits of real report/evidence bundles. Use it together with [report-interpretation-knowledge.md](report-interpretation-knowledge.md): this file defines the output contract, while the interpretation reference teaches how to reason about accounting bridges, financing/EV, setup-specific Kelly, binding risk caps, cross-source disagreement, acquisition failures, IV/Gamma quality, and PIT chronology.
 
-## 1. Report correctness gates
+The interpretation reference is **knowledge, not a ticker-specific rulebook**. Apply those lenses when economically material and explain why they matter in the current case.
 
-A report is publishable only when all material modules pass these gates. If a gate fails, keep the module visible but downgrade it to `UNVERIFIED`, `NEEDS_EVIDENCE`, or `RISK_BLOCKED`; do not silently omit the failure.
+## 1. Canonical report architecture
 
-### 1.1 Freshness barrier
+The reader-facing semantic source of truth is `structured_report.json`.
 
-For every module record:
+```text
+raw/provider evidence
+  -> normalized evidence + deterministic artifacts
+  -> evidence freeze / claim graph / reviews / arbitration
+  -> structured research synthesis
+  -> structured_report.json        # canonical reader-facing semantics
+       -> Markdown renderer         # terminal format
+       -> HTML renderer             # rich reader format
+       -> validator
+  -> evidence-chain package manifest + checksums
+  -> <run_id>_evidence_chain_report_package.zip
+```
 
-- `module_as_of`
-- `latest_material_event_at`
-- `latest_primary_evidence_at`
-- `price_as_of`
-- `freshness_status`
+**Do not use Markdown as an input to the HTML renderer.** Markdown and HTML are sibling outputs from the same structured JSON. A legacy Markdown report may be migrated once into structured content, but future semantics must be edited in JSON/structured synthesis rather than inferred from headings or prose.
 
-If a material event (earnings, guidance, financing, merger, regulatory decision, major product/capacity update) occurred after the newest evidence used by a module but before the price/reference timestamp, the module is stale. Do not combine post-event price/options data with pre-event fundamental/valuation conclusions as if they were one coherent snapshot.
+`report_manifest.json` may remain as a light module/index/acquisition artifact for backward compatibility. It is not the canonical narrative source once `structured_report.json` exists.
 
-Required behavior:
+Relevant files:
 
-- mark `freshness_status=stale_after_material_event`;
-- suppress confident thesis/valuation/risk conclusions that depend on the stale module;
-- emit an evidence request for the missing post-event primary source;
-- create a new run after refresh rather than editing the frozen old run.
+- `schemas/structured-report.schema.json`
+- `scripts/build_structured_report.py`
+- `scripts/validate_structured_report.py`
+- `scripts/render_markdown_report.py`
+- `scripts/render_html_report.py`
+- `scripts/build_evidence_chain_package.py`
 
-### 1.2 Primary-source priority
+## 2. Structured report content contract
 
-When a company/SEC primary source exists for the period being analyzed, use it before a secondary news summary. Secondary sources may add interpretation or context, but must not be the only evidence for a number that is directly available from the issuer/SEC.
+Every full report should contain:
 
-### 1.3 Missing is not zero
+- exact `run_id`, `symbol`, `as_of`, `evidence_cutoff`, and `price_timestamp`;
+- canonical `research_state`;
+- executive summary / thesis / variant perception / primary horizon;
+- module status, confidence, freshness, evidence IDs and source artifacts;
+- deterministic metrics or references to the artifacts that contain them;
+- reader-facing blocks;
+- explicit key judgments with `why`, confidence, evidence IDs and invalidation when useful;
+- **knowledge notes** that teach important concepts only when relevant to the current decision;
+- chart specs whose data come from structured artifacts;
+- missing fields and limitations.
 
-A missing field is `null` / `not_observed`, never numeric zero unless the source explicitly reported zero. This applies especially to:
+Use the `judgments` field for conclusions and the `knowledge_notes` field for transferable explanations. Do not hide analytical logic only inside free-form prose.
 
-- option open interest;
-- option volume;
-- bid/ask;
-- Greeks;
-- valuation inputs;
-- short-horizon bars/counts;
-- consensus revisions.
+## 3. Chart interpretation contract
 
-Any aggregate must report observed-row count, missing-row count, and coverage. If coverage is insufficient, aggregate output is `null` or explicitly partial.
+A chart is incomplete if the reader has to guess why it exists. Every chart must carry four explanations in `structured_report.json`:
 
-### 1.4 Research-state enum
+- `WHAT`: what data/relationship is being plotted;
+- `READ`: what the current evidence says and how to read the shape/levels;
+- `WHY`: why the chart matters to the thesis, timing, valuation, options or risk decision;
+- `LIMIT`: what the chart cannot prove and which data-quality caveats remain.
 
-Reader-facing state must use the canonical governance enum exactly:
+The HTML renderer shows this explanation immediately below each figure. Markdown renders the same four fields as text. This prevents a visual from becoming an unexplained dashboard decoration.
 
-`RESEARCH_READY`, `READY_CONDITIONAL`, `WAIT_CONFIRMATION`, `NEEDS_EVIDENCE`, `RISK_BLOCKED`, `MONITOR_ONLY`, `THESIS_INVALIDATED`.
+When a concept is central to a judgment, add a nearby `knowledge_note`, for example:
 
-Do not invent near-synonyms such as `READY CONDITIONAL`, `WATCHLIST INITIATION`, or prose states that cannot be validated.
+- GAAP-to-operating bridge;
+- Foundry/segment economics;
+- EV versus dilution mechanics;
+- total variance versus raw IV;
+- gross Gamma versus signed dealer GEX;
+- setup-specific Kelly;
+- binding position constraints;
+- relative-strength/residual interpretation;
+- PIT/source-quality distinctions.
 
-## 2. Timing and technical labeling
+## 4. HTML design language
 
-### 2.1 Intraday evidence gate
+The rich report should follow the terminal design language supplied by the project owner rather than a rounded-card dashboard aesthetic:
 
-Do not label a block `today timing`, `opening confirmation`, `VWAP setup`, `ORH/ORL`, or similar unless the run contains same-session intraday evidence adequate for that claim.
+- near-black background (`~4%` lightness) and high-contrast foreground;
+- thin neutral-gray borders;
+- zero/near-zero border radius;
+- monospace-first typography (`Space Mono` / `JetBrains Mono` style fallback);
+- uppercase English labels with concise Chinese explanations where useful;
+- 12-column terminal/grid composition;
+- green/red/amber reserved for semantic state, not decoration;
+- no gradients, glassmorphism or oversized rounded cards;
+- data density may be high, but section hierarchy must remain obvious.
 
-If only prior-close/daily/ATR evidence is present, label it `next-session setup` or `daily-structure scenario`.
+Normal generated HTML embeds Plotly and is standalone/offline. Versioned repository examples may use a CDN build to avoid duplicating several megabytes of Plotly in Git history.
 
-### 2.2 Multi-horizon trend state
+## 5. Correctness and freshness principles
 
-Do not collapse short-, medium-, and long-horizon trend into one bullish/bearish label when they conflict. Prefer:
+A report can be visually polished and still be wrong. Preserve these principles:
 
-- `short_trend_state`
-- `medium_trend_state`
-- `long_trend_state`
-- `trend_conflict`
+### 5.1 Freshness coherence
 
-A stock below short EMAs with bearish short momentum but above a rising long SMA is a horizon conflict, not one-dimensional bullishness.
+Do not combine post-event market data with pre-event fundamental/valuation conclusions without explicitly marking the mismatch. Record latest material event, latest primary evidence and price timestamp. If an important module is stale, downgrade the relevant judgment or request new evidence.
 
-## 3. Options and Gamma terminology
+### 5.2 Primary-source priority
 
-### 3.1 Evidence-strength naming
+When issuer/SEC primary evidence exists for a material reported number, prefer it over a secondary article. Secondary reporting may add context but should not be the only evidence for a directly available company/filing fact.
 
-One call/put pair at two expiries from historical closes is a `two-expiry ATM straddle/variance proxy`, not a full volatility surface or robust term structure.
+### 5.3 Missing is not zero
 
-Use stronger terms only when the required surface/quote coverage exists.
+Missing OI, volume, bid/ask, Greeks, valuation inputs, bars/counts or revisions remain `null/not_observed`. If an aggregate is partial, expose coverage. Do not make a missing field look like an economically meaningful zero.
 
-### 3.2 OI/Gamma gate
+### 5.4 Timing language follows timing evidence
 
-Gamma concentration is publishable only when open interest is actually observed with adequate coverage and at least one economically meaningful positive OI/Gamma row exists.
+If the package has only previous completed-session evidence, describe a `next-session setup` or `daily-structure scenario`. Use labels such as `today confirmed`, VWAP, ORH/ORL or microstructure confirmation only when the relevant same-session evidence exists.
 
-If OI is missing, all zero/untrusted, or coverage is below the declared threshold:
+### 5.5 Options evidence strength
 
-- `gamma_status=UNAVAILABLE_ZERO_OR_UNTRUSTED_OI` (or an equivalent explicit unavailable status);
-- do not rank upper/lower Gamma walls;
-- do not draw a Gamma wall chart;
-- do not convert an arbitrary all-zero strike into a concentration level.
+A few historical call/put closes across two expiries are a straddle/variance proxy, not a full volatility surface. Gross OI-weighted Gamma is not signed dealer GEX. Missing/untrusted OI must suppress Gamma-wall ranking; unreliable IV should downgrade Gamma rather than be accepted just because it is numerically positive.
 
-Unsigned OI-weighted Gamma is `gross gamma structure`, never `dealer GEX`. Signed/dealer Gamma requires an explicitly labeled position-sign assumption or flow inference.
+For the reasoning behind these principles, read [report-interpretation-knowledge.md](report-interpretation-knowledge.md) rather than turning them into blind numeric thresholds.
 
-### 3.3 Activity is not direction
+## 6. Evidence-chain ZIP is the normal report deliverable
 
-Option volume/OI are activity distributions. They do not identify buyer/seller, opening/closing, customer/dealer side, or forced hedging flow.
+A completed report run should end with one portable ZIP, the same artifact type used for external audit/review:
 
-## 4. Kelly and sizing labels
+`<run_id>_evidence_chain_report_package.zip`
 
-Display each quantity under its exact meaning. Never call a quarter/fractional Kelly number “full-sample Kelly”. At minimum separate:
+Use:
 
-- `p`
-- `b`
-- `f_raw_formula`
-- `empirical_full_sample_kelly` when actually computed
-- `full_kelly`
-- `half_kelly`
-- `quarter_kelly`
-- `option_event_haircut`
-- `diagnostic_fractional_kelly_cap`
-- `applied_fractional_kelly`
-- `qualification_status`
+```powershell
+python scripts/build_evidence_chain_package.py `
+  --run-dir outputs/INTC_2026-08-12 `
+  --structured-report structured_report.json
+```
 
-A diagnostic can be shown with insufficient OOS; it must not be described as validated/applied.
+The packager:
 
-## 5. Replay-complete evidence bundle
+1. validates `structured_report.json`;
+2. renders Markdown from structured JSON;
+3. renders HTML from the same structured JSON and deterministic artifacts;
+4. writes `evidence_chain_manifest.json` with path/size/SHA256;
+5. writes `SHA256SUMS.txt`;
+6. compresses the report, evidence and supporting artifacts into one ZIP.
 
-A `full-research` run should be portable enough to audit without re-browsing. Bundle the raw/normalized artifacts used for material conclusions, including when applicable:
+Do not package unrelated historical ZIPs or temporary/lock files inside the report ZIP.
 
+## 7. Replay-complete package target
+
+A full-research package should be portable enough to audit without re-browsing. Include when applicable:
+
+- `structured_report.json`;
+- evidence packet and evidence freeze metadata;
+- raw or frozen SEC/IR primary-source packets used for material claims;
 - market and intraday packets;
-- SEC/IR primary evidence packets;
-- macro and consensus packets;
-- options source packets and reconciliation output;
-- valuation input snapshot;
-- deterministic module outputs;
-- Evidence Packet / freeze hash;
+- options source packets, reconciliation, feature and Gamma artifacts;
+- valuation snapshot and deterministic model outputs;
 - Claim Graph;
 - Bull/Bear/Skeptic review objects;
 - arbitration object;
-- decision record.
+- decision record;
+- Markdown and HTML reader outputs;
+- `evidence_chain_manifest.json` and `SHA256SUMS.txt`.
 
-URLs in Markdown are not a substitute for the frozen source packet.
+A URL in prose is navigation, not a replacement for a frozen primary-source artifact when replay completeness matters.
 
-## 6. Modular report manifest
+## 8. Modular output
 
-Prefer a machine-readable `report_manifest.json` as the common input to all reader-facing renderers. Markdown and HTML should be sibling outputs, not an HTML parser scraping semantic data out of prose.
-
-Each module should declare:
-
-- module name;
-- status and confidence;
-- `as_of` / evidence cutoff;
-- source artifact paths / evidence IDs;
-- freshness status;
-- missing fields;
-- deterministic metrics;
-- optional narrative Markdown;
-- visualization specs or artifact references.
-
-See `schemas/report-manifest.schema.json` and `assets/report-manifest-template.json`.
-
-## 7. HTML output contract
-
-HTML is the default rich reader-facing representation when a report is generated. A full report and a module-only report use the same renderer.
-
-Supported modules:
-
-`overview`, `fundamentals`, `valuation`, `technical`, `options`, `governance`, `risk`, `scenarios`, `evidence`.
+`structured_report.json` can contain all modules while a renderer selects a subset. A narrow request does not need to rebuild the entire research workflow if the requested conclusion is independent.
 
 Examples:
 
 ```powershell
-python skill/scripts/render_html_report.py --report report.md --run-dir runs/NVDA --output report.html
-python skill/scripts/render_html_report.py --report report.md --run-dir runs/NVDA --output options.html --modules options
-python skill/scripts/render_html_report.py --report report.md --run-dir runs/NVDA --output tactical.html --modules technical,options,risk
+python scripts/render_html_report.py --structured-report structured_report.json --run-dir runs/NVDA --output report.html
+python scripts/render_html_report.py --structured-report structured_report.json --run-dir runs/NVDA --output options.html --modules options
+python scripts/render_markdown_report.py --structured-report structured_report.json --output tactical.md --modules technical,options,risk
 ```
 
-Renderer rules:
+A module-only HTML is still a complete document: title, status, evidence limitations, charts, chart explanations and knowledge notes must remain visible.
 
-1. Plot from deterministic JSON/raw artifacts when available; do not scrape numerical values out of narrative if a structured source exists.
-2. Missing/untrusted data suppress the corresponding visualization instead of producing a deceptive zero chart.
-3. Every chart states evidence type and as-of context in nearby text/tooltips.
-4. Module-only HTML remains a complete standalone document with title, evidence status, limitations, and source narrative for that module.
-5. The HTML renderer must never upgrade evidence strength. Visualization is presentation, not new analysis.
-6. Keep Markdown/JSON outputs as audit/support artifacts even when HTML is the primary reading surface.
+## 9. Structured synthesis workflow for the agent
 
-## 8. Recommended pipeline
+After evidence freeze and deterministic calculation, the research agent should synthesize into structured fields rather than drafting Markdown first. `build_structured_report.py` can merge a `research_content.json` synthesis object with deterministic artifacts and legacy module metadata.
 
-```text
-acquisition
-  -> raw source packets
-  -> normalization / deterministic calculations
-  -> evidence freeze + claim graph
-  -> report_manifest.json
-       -> Markdown renderer
-       -> HTML renderer (full or selected modules)
-       -> machine audit/validation
-```
+The synthesis step should answer:
 
-A narrow request may stop after only the required modules are acquired/calculated, then produce a module-only manifest and HTML. It does not need to run the entire full-research workflow unless the requested conclusion depends on it.
+- What is observed?
+- What is the judgment?
+- Why does it matter economically?
+- What is the confidence and evidence basis?
+- What would invalidate it?
+- Which transferable concept should be explained to the reader?
+- Which chart best supports the judgment, and what are its WHAT/READ/WHY/LIMIT notes?
+
+Only after this step should Markdown/HTML be rendered.
+
+## 10. Validation philosophy
+
+Validation should fail closed on structural/reporting contradictions that make rendering unsafe (invalid state enum, malformed structured report, missing chart interpretation fields). Analytical knowledge should not be encoded as simplistic hard thresholds when the correct interpretation depends on context. Use knowledge references to guide reasoning, and reserve validators for true schema/governance invariants.
