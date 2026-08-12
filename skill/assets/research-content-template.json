@@ -22,14 +22,7 @@
       "blocks": [],
       "judgments": [],
       "knowledge_notes": [],
-      "position_inputs": {
-        "portfolio_value": null,
-        "stop": null,
-        "risk_budget_pct": 0.005,
-        "concentration_cap_pct": 0.05,
-        "current_setup_id": null,
-        "setup_match_status": "unknown"
-      }
+      "calculation_contract": "Kelly, setup identity, stop, account value and portfolio caps come from deterministic stock_eval.json. Research content may explain them but must not override them. If no user portfolio value is supplied, the deterministic engine emits a labeled $10,000 simulation."
     },
     "scenarios": {
       "blocks": [],
