@@ -37,11 +37,15 @@ def main() -> None:
     structured = (run / args.structured_report if not Path(args.structured_report).is_absolute() else Path(args.structured_report)).resolve()
     script_dir = Path(__file__).resolve().parent
 
-    # Finalization is mandatory before validation/rendering. It reconciles the
-    # reader-facing JSON against deterministic frozen artifacts and fails closed
-    # on future timestamps, stale-current-price leakage and unusable Kelly sizing.
+    # Mechanical/PIT finalization first, then research-semantic finalization.
+    # Neither pass invents facts; both repair or block contradictions using the
+    # frozen deterministic/source artifacts in the run directory.
     run_cmd([
         sys.executable, str(script_dir / "finalize_structured_report.py"),
+        "--report", str(structured), "--run-dir", str(run),
+    ])
+    run_cmd([
+        sys.executable, str(script_dir / "finalize_research_semantics.py"),
         "--report", str(structured), "--run-dir", str(run),
     ])
     data = json.loads(structured.read_text(encoding="utf-8"))
@@ -91,6 +95,7 @@ def main() -> None:
         "canonical_report": structured.relative_to(run).as_posix() if structured.is_relative_to(run) else structured.name,
         "reader_outputs": [markdown.name, html.name],
         "finalization_status": data.get("package_hints", {}).get("finalization_status"),
+        "semantic_finalization_status": data.get("package_hints", {}).get("semantic_finalization_status"),
         "artifact_count": len(files),
         "artifacts": [],
     }
@@ -115,6 +120,7 @@ def main() -> None:
         "markdown": str(markdown),
         "html": str(html),
         "finalization_status": data.get("package_hints", {}).get("finalization_status"),
+        "semantic_finalization_status": data.get("package_hints", {}).get("semantic_finalization_status"),
     }, ensure_ascii=False))
 
 
