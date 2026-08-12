@@ -73,43 +73,57 @@ def kelly_markdown(module: dict) -> list[str]:
     formula = kelly.get("out_of_sample_formula", {}) if kelly.get("out_of_sample_formula", {}).get("trades") else kelly.get("full_sample_formula", {})
     empirical = kelly.get("conditional_oos_kelly_fraction") if kelly.get("conditional_oos_kelly_fraction") is not None else kelly.get("exploratory_full_sample_kelly_fraction")
     selected = kelly.get("selected_edge", {}) or {}
-    overlay = guidance.get("risk_overlay_combination", {}) or {}
-    setup = guidance.get("setup_match", {}) or {}
-    sample = guidance.get("sample_confidence", {}) or {}
+    overlay = guidance.get("risk_overlay_combination", {}) or kelly.get("risk_overlay_combination", {}) or {}
+    setup = guidance.get("setup_match", {}) or kelly.get("setup_match", {}) or {}
+    sample = guidance.get("sample_confidence", {}) or kelly.get("sample_confidence", {}) or {}
+    variants = guidance.get("variants", {}) or {}
+    available = bool(variants)
     lines = [
         "### Kelly 計算鏈 / 1 萬美元倉位參考",
-        f"- **账户：** {text(guidance.get('simulation_label'))}",
-        f"- **当前 20 日实现波动率：** {pct(guidance.get('current_realized_vol_20d_annualized'))}",
-        f"- **日内 1σ：** {pct(guidance.get('daily_sigma'), 3)}",
-        f"- **样本等级：** `{text(sample.get('tier'))}`",
-        f"- **设置匹配：** `{text(setup.get('status'))}`",
-        f"- **仓位建议：** `{text(guidance.get('guidance_variant'))}` = **{pct(guidance.get('guidance_fraction'))} NAV / {money(guidance.get('guidance_notional_dollars'))}**",
+        f"- **帳戶：** {text(guidance.get('simulation_label'))}",
+        f"- **當前 20 日實現波動率：** {pct(guidance.get('current_realized_vol_20d_annualized'))}",
+        f"- **日內 1σ：** {pct(guidance.get('daily_sigma'), 3)}",
+        f"- **樣本等級：** `{text(sample.get('tier'))}`",
+        f"- **設定匹配：** `{text(setup.get('status'))}`",
+    ]
+    if available:
+        lines.append(f"- **倉位參考：** `{text(guidance.get('guidance_variant'))}` = **{pct(guidance.get('guidance_fraction'))} NAV / {money(guidance.get('guidance_notional_dollars'))}**")
+    else:
+        lines.append(f"- **倉位結論：** **不輸出數值 Kelly 倉位** — {text(guidance.get('reason') or guidance.get('interpretation'))}")
+    lines += [
         "",
-        "| 凯利输入 | 数值 |",
+        "| Kelly 輸入 | 數值 |",
         "|---|---:|",
         f"| p / 勝率 | {pct(formula.get('p_win_rate'))} |",
-        f"| b / 平均盈利 ÷ 平均亏损 | {num(formula.get('b_avg_win_over_avg_loss'), 3)} |",
+        f"| b / 平均盈利 ÷ 平均虧損 | {num(formula.get('b_avg_win_over_avg_loss'), 3)} |",
         f"| 公式 Kelly | {pct(formula.get('raw_formula_kelly_fraction'))} |",
-        f"| 经验对数增长 Kelly | {pct(empirical)} |",
-        f"| 选用基础优势 | {pct(selected.get('fraction'))} |",
-        f"| 综合风险折扣 | {pct(overlay.get('combined_haircut'))} |",
-        "",
-        "| 仓位方案 | 风险折扣后 | 最终 NAV | 1 万美元名义金额 | 股数 | 日内 1σ NAV | 日内 1σ 金额 | 止损金额 | 约束来源 |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---|",
+        f"| 經驗對數增長 Kelly | {pct(empirical)} |",
+        f"| 診斷選用基礎優勢 | {pct(selected.get('fraction'))} |",
+        f"| 綜合風險折扣 | {pct(overlay.get('combined_haircut'))} |",
     ]
-    for label in ("full", "half", "quarter"):
-        item = guidance.get("variants", {}).get(label)
-        if not item:
-            continue
-        suffix = " **← 建议**" if label == guidance.get("guidance_variant") else ""
-        lines.append(
-            f"| {label.upper()}{suffix} | {pct(item.get('theoretical_post_overlay_fraction'))} | {pct(item.get('final_fraction'))} | "
-            f"{money(item.get('notional_dollars'))} | {num(item.get('exact_fractional_shares'))} | "
-            f"{pct(item.get('one_day_one_sigma_nav_fraction'), 3)} | {money(item.get('one_day_one_sigma_dollars'), 2)} | "
-            f"{money(item.get('stop_loss_dollars'), 2)} | {text(item.get('binding_constraint'))} |"
-        )
-    if not guidance.get("variants"):
-        lines.append(f"\n**仅风险约束 / 暂不可用：** {text(guidance.get('interpretation') or guidance.get('reason'))}")
+    if available:
+        lines += [
+            "",
+            "| 倉位方案 | 風險折扣後 | 最終 NAV | 1 萬美元名義金額 | 股數 | 日內 1σ NAV | 日內 1σ 金額 | 止損金額 | 約束來源 |",
+            "|---|---:|---:|---:|---:|---:|---:|---:|---|",
+        ]
+        for label in ("full", "half", "quarter"):
+            item = variants.get(label)
+            if not item:
+                continue
+            suffix = " **← 參考**" if label == guidance.get("guidance_variant") else ""
+            lines.append(
+                f"| {label.upper()}{suffix} | {pct(item.get('theoretical_post_overlay_fraction'))} | {pct(item.get('final_fraction'))} | "
+                f"{money(item.get('notional_dollars'))} | {num(item.get('exact_fractional_shares'))} | "
+                f"{pct(item.get('one_day_one_sigma_nav_fraction'), 3)} | {money(item.get('one_day_one_sigma_dollars'), 2)} | "
+                f"{money(item.get('stop_loss_dollars'), 2)} | {text(item.get('binding_constraint'))} |"
+            )
+    else:
+        eligibility = kelly.get("edge_eligibility", {}) or {}
+        reasons = eligibility.get("reasons", []) or []
+        if reasons:
+            lines += ["", "**為何不轉成倉位：**"] + [f"- {item}" for item in reasons]
+        lines.append("\n> 上表的 empirical / p-b 數字仍保留作診斷；診斷值不等於可用倉位。")
     return lines
 
 
@@ -122,8 +136,8 @@ def _tree_lines(node: dict, prefix: str = "", is_last: bool = True, root: bool =
     if ref_text:
         line += f" [{ref_text}]"
     if tier:
-        line += f" [仓位={tier}]"
-    lines = [line, f"{prefix}{'   ' if root or is_last else '│  '}那么： {node.get('response')}"]
+        line += f" [倉位={tier}]"
+    lines = [line, f"{prefix}{'   ' if root or is_last else '│  '}那麼： {node.get('response')}"]
     child_prefix = prefix + ("   " if root or is_last else "│  ")
     children = node.get("children", [])
     for index, child in enumerate(children):
@@ -133,9 +147,9 @@ def _tree_lines(node: dict, prefix: str = "", is_last: bool = True, root: bool =
 
 def scenario_markdown(tree: dict) -> list[str]:
     lines = [f"### {tree.get('title')}",
-             f"`观察期限={tree.get('horizon')}` · `证据状态={tree.get('evidence_status')}`"]
+             f"`觀察期限={tree.get('horizon')}` · `證據狀態={tree.get('evidence_status')}`"]
     if tree.get("opening_range_minutes"):
-        lines[-1] += f" · `开盘区间={tree.get('opening_range_minutes')} 分钟`"
+        lines[-1] += f" · `開盤區間={tree.get('opening_range_minutes')} 分鐘`"
     lines += ["", "```text"] + _tree_lines(tree.get("root", {}), root=True) + ["```"]
     return lines
 
@@ -151,69 +165,69 @@ def main() -> None:
     selected = set(args.modules.split(",")) if args.modules else set(data.get("modules", {}))
     lines = [
         f"# {data.get('title') or data.get('symbol', '')}\n",
-        f"- **运行编号：** `{data.get('run_id')}`",
-        f"- **截至时间：** `{data.get('as_of')}`",
-        f"- **证据截止：** `{text(data.get('evidence_cutoff'))}`",
-        f"- **价格时间戳：** `{text(data.get('price_timestamp'))}`",
-        f"- **研究状态：** `{data.get('research_state')}`",
-        f"- **默认模拟账户：** `${data.get('package_hints', {}).get('default_simulation_portfolio_value', 10000):,.0f}`（未提供用户组合时）",
+        f"- **執行編號：** `{data.get('run_id')}`",
+        f"- **截至時間：** `{data.get('as_of')}`",
+        f"- **證據截止：** `{text(data.get('evidence_cutoff'))}`",
+        f"- **價格時間戳：** `{text(data.get('price_timestamp'))}`",
+        f"- **研究狀態：** `{data.get('research_state')}`",
+        f"- **預設模擬帳戶：** `${data.get('package_hints', {}).get('default_simulation_portfolio_value', 10000):,.0f}`（未提供使用者組合時）",
     ]
 
     summary = data.get("summary", {})
     if summary:
-        lines += ["\n## 执行摘要"]
+        lines += ["\n## 執行摘要"]
         for key, label in [("headline", "摘要"), ("thesis", "核心主線"), ("variant_perception", "差異化判斷"), ("primary_horizon", "研究時間軸")]:
             if summary.get(key):
                 lines.append(f"**{label}:** {summary[key]}")
         if summary.get("key_risks"):
-            lines += ["\n**主要风险**"] + [f"- {item}" for item in summary["key_risks"]]
+            lines += ["\n**主要風險**"] + [f"- {item}" for item in summary["key_risks"]]
         if summary.get("next_evidence"):
-            lines += ["\n**下一步证据**"] + [f"- {item}" for item in summary["next_evidence"]]
+            lines += ["\n**下一步證據**"] + [f"- {item}" for item in summary["next_evidence"]]
 
     for name, module in data.get("modules", {}).items():
         if name not in selected:
             continue
         lines += [f"\n## {module.get('title', name)}",
-                  f"`状态={module.get('status')}` · `置信度={text(module.get('confidence'))}` · `新鲜度={module.get('freshness_status')}`"]
+                  f"`狀態={module.get('status')}` · `置信度={text(module.get('confidence'))}` · `新鮮度={module.get('freshness_status')}`"]
         for block in module.get("blocks", []):
             rendered = render_block(block)
             if rendered:
                 lines.append(rendered)
         if module.get("judgments"):
-            lines.append("### 关键判断")
+            lines.append("### 關鍵判斷")
             for judgment in module["judgments"]:
                 lines.append(f"**{judgment.get('label')}** — {judgment.get('conclusion')}")
                 if judgment.get("why"):
-                    lines.append(f"依据：{judgment['why']}")
+                    lines.append(f"依據：{judgment['why']}")
                 if judgment.get("invalidation"):
-                    lines += ["失效条件："] + [f"- {item}" for item in judgment["invalidation"]]
+                    lines += ["失效條件："] + [f"- {item}" for item in judgment["invalidation"]]
         if module.get("knowledge_notes"):
-            lines.append("### 判读知识")
+            lines.append("### 判讀知識")
             for note in module["knowledge_notes"]:
                 lines.append(f"**{note.get('title')}** — {note.get('explanation')}")
                 if note.get("applied_to_current_report"):
-                    lines.append(f"本报告应用：{note['applied_to_current_report']}")
+                    lines.append(f"本報告應用：{note['applied_to_current_report']}")
         if name == "risk":
             lines += kelly_markdown(module)
         if module.get("charts"):
-            lines.append("### 图表解读")
+            lines.append("### 圖表解讀")
             for chart in module["charts"]:
                 interpretation = chart.get("interpretation", {})
                 lines += [
                     f"**{chart.get('title')}**",
-                    f"- 看什么：{interpretation.get('what', '')}",
-                    f"  - 观察到：{interpretation.get('what_observed', '')}",
-                    f"- 当前解读：{interpretation.get('read', '')}",
+                    f"- 看什麼：{interpretation.get('what', '')}",
+                    f"  - 觀察到：{interpretation.get('what_observed', '')}",
+                    f"- 當前解讀：{interpretation.get('read', '')}",
                     f"  - 當前結果：{interpretation.get('read_result', '')}",
-                    f"- 为什么重要：{interpretation.get('why', '')}",
-                    f"  - 当前含义：{interpretation.get('why_now', '')}",
+                    f"- 為什麼重要：{interpretation.get('why', '')}",
+                    f"  - 當前含義：{interpretation.get('why_now', '')}",
                     f"- 限制：{interpretation.get('limit', '')}",
-                    f"  - 影响：{interpretation.get('limit_effect', '')}",
+                    f"  - 影響：{interpretation.get('limit_effect', '')}",
                 ]
         for tree in module.get("scenario_trees", []):
             lines += scenario_markdown(tree)
         if module.get("missing_fields"):
-            lines += ["### 缺失项 / 解决审计"] + [f"- {item}" for item in module["missing_fields"]]
+            lines += ["### 缺失項 / 解決審計"] + [f"- {item}" for item in module["missing_fields"]]
         if module.get("limitations"):
             lines += ["### 限制"] + [f"- {item}" for item in module["limitations"]]
 
