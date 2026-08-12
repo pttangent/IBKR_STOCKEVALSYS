@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render MD/HTML from structured JSON and emit a portable evidence-chain ZIP."""
+"""Finalize, validate, render and package a portable evidence-chain report."""
 from __future__ import annotations
 
 import argparse
@@ -35,14 +35,21 @@ def main() -> None:
 
     run = Path(args.run_dir).resolve()
     structured = (run / args.structured_report if not Path(args.structured_report).is_absolute() else Path(args.structured_report)).resolve()
+    script_dir = Path(__file__).resolve().parent
+
+    # Finalization is mandatory before validation/rendering. It reconciles the
+    # reader-facing JSON against deterministic frozen artifacts and fails closed
+    # on future timestamps, stale-current-price leakage and unusable Kelly sizing.
+    run_cmd([
+        sys.executable, str(script_dir / "finalize_structured_report.py"),
+        "--report", str(structured), "--run-dir", str(run),
+    ])
     data = json.loads(structured.read_text(encoding="utf-8"))
     run_id = data["run_id"]
-    script_dir = Path(__file__).resolve().parent
     markdown = run / f"{run_id}_complete_report.md"
     html = run / f"{run_id}_complete_report.html"
 
-    validate = [sys.executable, str(script_dir / "validate_structured_report.py"), "--report", str(structured)]
-    run_cmd(validate)
+    run_cmd([sys.executable, str(script_dir / "validate_structured_report.py"), "--report", str(structured)])
 
     command = [sys.executable, str(script_dir / "render_markdown_report.py"), "--structured-report", str(structured), "--output", str(markdown)]
     if args.modules:
@@ -59,6 +66,7 @@ def main() -> None:
     zip_path = Path(args.zip).resolve() if args.zip else export_dir / f"{run_id}_evidence_chain_report_package.zip"
     excluded = {zip_path.resolve()}
     files: list[Path] = []
+    canonical_reader_names = {markdown.name, html.name}
     for path in sorted(run.rglob("*")):
         if not path.is_file() or path.resolve() in excluded:
             continue
@@ -66,18 +74,23 @@ def main() -> None:
             continue
         if path.suffix.lower() in {".tmp", ".lock", ".zip"}:
             continue
+        # Do not carry stale duplicate reader outputs from older naming schemes.
+        if path.suffix.lower() in {".md", ".html"} and "complete_report" in path.name and path.name not in canonical_reader_names:
+            continue
         files.append(path)
 
     manifest = {
-        "schema_version": "2.0",
+        "schema_version": "2.1",
         "package_type": "evidence_chain_report_package",
         "run_id": run_id,
         "symbol": data.get("symbol"),
         "as_of": data.get("as_of"),
         "evidence_cutoff": data.get("evidence_cutoff"),
+        "price_timestamp": data.get("price_timestamp"),
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "canonical_report": structured.relative_to(run).as_posix() if structured.is_relative_to(run) else structured.name,
         "reader_outputs": [markdown.name, html.name],
+        "finalization_status": data.get("package_hints", {}).get("finalization_status"),
         "artifact_count": len(files),
         "artifacts": [],
     }
@@ -101,6 +114,7 @@ def main() -> None:
         "structured_report": str(structured),
         "markdown": str(markdown),
         "html": str(html),
+        "finalization_status": data.get("package_hints", {}).get("finalization_status"),
     }, ensure_ascii=False))
 
 
