@@ -1,30 +1,38 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "3.0",
   "as_of": "2026-08-12",
-  "purpose": "versioned demonstration artifact for the structured-report v2 HTML contract",
+  "purpose": "versioned complete demonstration artifact for the JSON-first Chinese evidence-chain report contract",
   "canonical_renderer": "skill/scripts/render_html_report.py",
   "canonical_semantic_source": "structured_report.json",
   "default_simulation_account": 10000,
-  "legacy_examples_retired": ["GEV_full_example.html", "XE_technical_example.html", "XE_options_example.html"],
+  "scenario_policy": "compositional_event_tree_with_sourced_price_anchors",
+  "retired_examples": [
+    "GEV_full_example.html",
+    "XE_technical_example.html",
+    "XE_options_example.html",
+    "INTC_v2_full_example.html",
+    "INTC_v2_structured_report.mock.json"
+  ],
   "examples": [
     {
-      "file": "INTC_v2_full_example.html",
+      "file": "INTC_full_report_example.html",
       "symbol": "INTC",
+      "language": "zh-Hant",
       "demo": true,
       "partially_mocked": true,
-      "structured_source": "INTC_v2_structured_report.mock.json",
-      "modules": ["overview", "risk", "technical", "scenarios", "evidence"],
+      "structured_source": "INTC_full_structured_report.mock.json",
+      "modules": ["overview", "fundamentals", "valuation", "technical", "options", "risk", "scenarios", "governance", "evidence"],
       "demonstrates": [
-        "terminal-style v2 UI",
-        "$10,000 default simulation account",
-        "Kelly p/b and empirical log-growth calculation chain",
-        "current realized-volatility overlay",
-        "full half quarter Kelly variants",
-        "final dollar notional fractional shares one-day sigma and binding caps",
-        "intraday gap-up flat gap-down branching mind map",
-        "separate short-term and long-term scenario trees",
-        "WHAT READ WHY LIMIT interpretation",
-        "JSON-first rendering contract"
+        "complete full-report composition rather than a partial risk/scenario mock",
+        "$10,000 default Kelly simulation",
+        "full half quarter Kelly and binding portfolio caps",
+        "support resistance moving-average and volatility anchors with distinct visual roles",
+        "numeric scenario anchors with source method confidence and status provenance",
+        "intraday compositional event grammar including break-retest-hold, false-break, support-test, retest-failure and bear-trap paths",
+        "prior close treated as context/reference rather than the structural scenario-tree spine",
+        "separate intraday short-term and long-term scenario reasoning",
+        "Chinese primary reader-facing UI",
+        "JSON-first report contract"
       ]
     }
   ]
