@@ -1,26 +1,31 @@
 {
-  "as_of": "2026-08-11",
-  "purpose": "versioned demonstration artifacts for the modular HTML report contract",
+  "schema_version": "2.0",
+  "as_of": "2026-08-12",
+  "purpose": "versioned demonstration artifact for the structured-report v2 HTML contract",
   "canonical_renderer": "skill/scripts/render_html_report.py",
-  "plotly_policy": "examples use CDN; normal generated reports embed Plotly for standalone/offline use",
+  "canonical_semantic_source": "structured_report.json",
+  "default_simulation_account": 10000,
+  "legacy_examples_retired": ["GEV_full_example.html", "XE_technical_example.html", "XE_options_example.html"],
   "examples": [
     {
-      "file": "GEV_full_example.html",
-      "symbol": "GEV",
-      "modules": ["overview", "fundamentals", "technical", "options", "risk", "scenarios", "evidence"],
-      "demonstrates": ["full report composition", "evidence-quality warnings", "weak Gamma/OI evidence not promoted to a wall", "explicit Kelly labels"]
-    },
-    {
-      "file": "XE_technical_example.html",
-      "symbol": "XE",
-      "modules": ["technical"],
-      "demonstrates": ["module-only standalone HTML", "trend/volatility/levels", "intraday-evidence gate"]
-    },
-    {
-      "file": "XE_options_example.html",
-      "symbol": "XE",
-      "modules": ["options"],
-      "demonstrates": ["module-only standalone HTML", "expected move and variance diagnostics", "zero-OI Gamma Wall suppression"]
+      "file": "INTC_v2_full_example.html",
+      "symbol": "INTC",
+      "demo": true,
+      "partially_mocked": true,
+      "structured_source": "INTC_v2_structured_report.mock.json",
+      "modules": ["overview", "risk", "technical", "scenarios", "evidence"],
+      "demonstrates": [
+        "terminal-style v2 UI",
+        "$10,000 default simulation account",
+        "Kelly p/b and empirical log-growth calculation chain",
+        "current realized-volatility overlay",
+        "full half quarter Kelly variants",
+        "final dollar notional fractional shares one-day sigma and binding caps",
+        "intraday gap-up flat gap-down branching mind map",
+        "separate short-term and long-term scenario trees",
+        "WHAT READ WHY LIMIT interpretation",
+        "JSON-first rendering contract"
+      ]
     }
   ]
 }
