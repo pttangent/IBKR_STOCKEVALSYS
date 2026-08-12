@@ -3,11 +3,69 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 
 STATES = {"RESEARCH_READY", "READY_CONDITIONAL", "WAIT_CONFIRMATION", "NEEDS_EVIDENCE", "RISK_BLOCKED", "MONITOR_ONLY", "THESIS_INVALIDATED"}
 REQUIRED_MODULE = {"title", "status", "freshness_status", "source_artifacts", "missing_fields"}
 REQUIRED_INTERPRETATION = {"what", "what_observed", "read", "read_result", "why", "why_now", "limit", "limit_effect"}
+REQUIRED_SCENARIO_NODE = {"id", "label", "trigger", "watch", "interpretation", "response", "invalidation", "action_boundary", "sizing_tier", "price_reference", "children"}
+SIZING_TIERS = {"none", "quarter", "half", "full_diagnostic", "risk_only"}
+
+
+def _validate_scenario_node(node: dict, path: str, errors: list[str]) -> None:
+    if not isinstance(node, dict):
+        errors.append(f"{path} must be object")
+        return
+    for key in REQUIRED_SCENARIO_NODE:
+        if key not in node:
+            errors.append(f"{path} missing {key}")
+    for key in ["id", "label", "trigger", "interpretation", "response", "invalidation", "action_boundary"]:
+        if key in node and not str(node.get(key) or "").strip():
+            errors.append(f"{path} empty {key}")
+    if node.get("sizing_tier") not in SIZING_TIERS:
+        errors.append(f"{path} invalid sizing_tier")
+    if not isinstance(node.get("watch", []), list):
+        errors.append(f"{path} watch must be list")
+    if not isinstance(node.get("price_reference", {}), dict):
+        errors.append(f"{path} price_reference must be object")
+    children = node.get("children", [])
+    if not isinstance(children, list):
+        errors.append(f"{path} children must be list")
+        return
+    for index, child in enumerate(children):
+        _validate_scenario_node(child, f"{path}.children[{index}]", errors)
+
+
+def _validate_kelly_guidance(module: dict, errors: list[str]) -> None:
+    guidance = module.get("metrics", {}).get("position_guidance", {})
+    if not isinstance(guidance, dict) or not guidance:
+        return
+    if guidance.get("portfolio_value_source") == "default_10000_simulation" and guidance.get("portfolio_value") != 10000.0:
+        errors.append("risk position_guidance default simulation must be 10000")
+    variants = guidance.get("variants", {})
+    if not isinstance(variants, dict) or not variants:
+        return
+    present = [label for label in ("full", "half", "quarter") if label in variants]
+    if present and present != ["full", "half", "quarter"]:
+        errors.append("risk position_guidance Kelly ladder must expose full, half, quarter together")
+        return
+    finals = []
+    portfolio = guidance.get("portfolio_value")
+    for label in ("full", "half", "quarter"):
+        item = variants.get(label, {})
+        final = item.get("final_fraction")
+        if not isinstance(final, (int, float)) or final < 0:
+            errors.append(f"risk position_guidance {label} invalid final_fraction")
+            continue
+        finals.append(final)
+        notional = item.get("notional_dollars")
+        if isinstance(portfolio, (int, float)) and isinstance(notional, (int, float)):
+            expected = portfolio * final
+            if not math.isclose(notional, expected, rel_tol=1e-9, abs_tol=1e-6):
+                errors.append(f"risk position_guidance {label} notional does not tie to portfolio*fraction")
+    if len(finals) == 3 and not (finals[0] >= finals[1] >= finals[2]):
+        errors.append("risk position_guidance final fractions must be non-increasing full >= half >= quarter")
 
 
 def validate(data: dict) -> list[str]:
@@ -34,6 +92,16 @@ def validate(data: dict) -> list[str]:
             for key in REQUIRED_INTERPRETATION:
                 if not str(interpretation.get(key) or "").strip():
                     errors.append(f"module {name} chart {chart.get('id', index)} missing interpretation.{key}")
+        for index, tree in enumerate(module.get("scenario_trees", [])):
+            if not isinstance(tree, dict):
+                errors.append(f"module {name} scenario tree {index} not object")
+                continue
+            for key in ["id", "horizon", "title", "evidence_status", "root"]:
+                if key not in tree:
+                    errors.append(f"module {name} scenario tree {index} missing {key}")
+            _validate_scenario_node(tree.get("root", {}), f"module {name} scenario tree {tree.get('id', index)}.root", errors)
+        if name == "risk":
+            _validate_kelly_guidance(module, errors)
         missing = module.get("missing_fields", [])
         resolutions = module.get("evidence_resolution", [])
         if missing and not isinstance(resolutions, list):
