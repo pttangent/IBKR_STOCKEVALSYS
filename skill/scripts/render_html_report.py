@@ -174,9 +174,31 @@ def chart_for(chart: dict, run: Path, report: dict) -> str:
     return "<div class='panel muted'>此圖表類型尚無 renderer</div>"
 
 
+def _structured_bullets_html(title: str | None, value: str) -> str | None:
+    if not isinstance(value, str):
+        return None
+    labels = ["看什麼：", "讀到什麼：", "為什麼重要：", "限制："]
+    if all(label in value for label in labels):
+        parts = []
+        for index, label in enumerate(labels[:-1]):
+            parts.append(f"<li><b>{esc(label[:-1])}</b>：{esc(value.split(label, 1)[1].split(labels[index + 1], 1)[0].strip())}</li>")
+        parts.append(f"<li><b>限制</b>：{esc(value.split('限制：', 1)[1].strip())}</li>")
+        return "<ul>" + "".join(parts) + "</ul>"
+    scenarios = ["下行情景：", "基準情景：", "上行情景："]
+    if title and "估值判斷" in title and all(label in value for label in scenarios):
+        parts = []
+        for index, label in enumerate(scenarios[:-1]):
+            parts.append(f"<li><b>{esc(label[:-1])}</b>：{esc(value.split(label, 1)[1].split(scenarios[index + 1], 1)[0].strip())}</li>")
+        parts.append(f"<li><b>上行情景</b>：{esc(value.split('上行情景：', 1)[1].strip())}</li>")
+        return "<ul>" + "".join(parts) + "</ul>"
+    return None
+
+
 def block_html(block: dict) -> str:
     kind = block.get("type"); title = block.get("title"); body = ""
-    if kind in {"paragraph", "callout"}: body = f"<p>{esc(block.get('text'))}</p>"
+    if kind in {"paragraph", "callout"}:
+        value = str(block.get("text") or "")
+        body = _structured_bullets_html(title, value) or f"<p>{esc(value)}</p>"
     elif kind == "markdown": body = MD(block.get("text") or "")
     elif kind == "bullets": body = "<ul>" + "".join(f"<li>{esc(i)}</li>" for i in block.get("items", [])) + "</ul>"
     elif kind == "metric_grid":
@@ -201,15 +223,15 @@ def kelly_guidance_html(module: dict) -> str:
               f"<div><div class='k'>當前 RV20</div><div class='v'>{pct(guidance.get('current_realized_vol_20d_annualized'))}</div></div>"
               f"<div><div class='k'>單日 1σ</div><div class='v'>{pct(guidance.get('daily_sigma'))}</div></div>"
               f"<div><div class='k'>樣本層級</div><div class='v'>{esc(sample.get('tier'))}</div></div>"
-              f"<div><div class='k'>Setup 匹配</div><div class='v'>{esc(setup.get('status'))}</div></div>"
-              f"<div><div class='k'>保守指引</div><div class='v kelly-guide'>{esc(guidance.get('guidance_variant'))} · {pct(guidance.get('guidance_fraction'))}</div></div></div>")
-    formula_table = ("<table><thead><tr><th>Edge 輸入</th><th>數值</th><th>解讀</th></tr></thead><tbody>"
+        f"<div><div class='k'>設定匹配</div><div class='v'>{esc(setup.get('status'))}</div></div>"
+        f"<div><div class='k'>保守參考</div><div class='v kelly-guide'>{esc(guidance.get('guidance_variant'))} · {pct(guidance.get('guidance_fraction'))}</div></div></div>")
+    formula_table = ("<table><thead><tr><th>優勢輸入</th><th>數值</th><th>解讀</th></tr></thead><tbody>"
                      f"<tr><td>p / 勝率</td><td>{pct(formula.get('p_win_rate'))}</td><td>優先使用同 setup 歷史樣本</td></tr>"
                      f"<tr><td>b / 平均盈利 ÷ 平均虧損</td><td>{num(formula.get('b_avg_win_over_avg_loss'),3)}</td><td>payoff 不對稱</td></tr>"
                      f"<tr><td>公式 Kelly</td><td>{pct(formula.get('raw_formula_kelly_fraction'))}</td><td>(p·b − (1−p)) / b</td></tr>"
-                     f"<tr><td>Empirical log-growth</td><td>{pct(empirical)}</td><td>max mean log(1+f·r)</td></tr>"
-                     f"<tr><td>選定 base edge</td><td>{pct(selected_edge.get('fraction'))}</td><td>{esc(selected_edge.get('source'))}</td></tr>"
-                     f"<tr><td>RV / event 風險折扣</td><td>{pct(overlay.get('combined_haircut'))}</td><td>{esc(overlay.get('policy'))}</td></tr></tbody></table>")
+                     f"<tr><td>經驗對數增長</td><td>{pct(empirical)}</td><td>最大化平均 log(1+f·r)</td></tr>"
+                     f"<tr><td>選用基礎優勢</td><td>{pct(selected_edge.get('fraction'))}</td><td>{esc(selected_edge.get('source'))}</td></tr>"
+                     f"<tr><td>RV / 事件風險折扣</td><td>{pct(overlay.get('combined_haircut'))}</td><td>{esc(overlay.get('policy'))}</td></tr></tbody></table>")
     rows = []
     for label in ("full", "half", "quarter"):
         item = guidance.get("variants", {}).get(label)

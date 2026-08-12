@@ -83,8 +83,8 @@ class StructuredReportTests(unittest.TestCase):
             charts = BUILDER.default_charts("risk", run, stock, {}, {}, guidance)
             self.assertEqual([chart["kind"] for chart in charts], ["kelly_position_ladder"])
             interpretation = charts[0]["interpretation"]
-            self.assertIn("$10k", interpretation["what"])
-            self.assertIn("quarter", interpretation["read_result"])
+            self.assertIn("1 萬美元", interpretation["what"])
+            self.assertIn("四分之一 Kelly", interpretation["read_result"])
 
     def _technical(self):
         return {

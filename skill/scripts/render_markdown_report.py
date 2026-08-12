@@ -32,6 +32,19 @@ def num(value, digits=2):
         return "—"
 
 
+def _structured_bullets(title: str | None, value: str) -> list[str] | None:
+    """Turn compact reader-facing compound prose into auditable bullet points."""
+    if not isinstance(value, str):
+        return None
+    labels = ["看什麼：", "讀到什麼：", "為什麼重要：", "限制："]
+    if all(label in value for label in labels):
+        return [f"- **{label[:-1]}：** {value.split(label, 1)[1].split(labels[i + 1], 1)[0].strip()}" for i, label in enumerate(labels[:-1])] + [f"- **限制：** {value.split('限制：', 1)[1].strip()}"]
+    scenarios = ["下行情景：", "基準情景：", "上行情景："]
+    if title and "估值判斷" in title and all(label in value for label in scenarios):
+        return [f"- **{label[:-1]}：** {value.split(label, 1)[1].split(scenarios[i + 1], 1)[0].strip()}" for i, label in enumerate(scenarios[:-1])] + [f"- **上行情景：** {value.split('上行情景：', 1)[1].strip()}"]
+    return None
+
+
 def render_block(block: dict) -> str:
     kind = block.get("type")
     title = block.get("title")
@@ -39,11 +52,12 @@ def render_block(block: dict) -> str:
     if title:
         out.append(f"### {title}")
     if kind in {"paragraph", "markdown", "callout"} and block.get("text"):
-        out.append(str(block["text"]))
+        structured = _structured_bullets(title, str(block["text"]))
+        out += structured if structured else [str(block["text"])]
     elif kind == "bullets":
         out += [f"- {item}" for item in block.get("items", [])]
     elif kind == "metric_grid":
-        out += ["| Metric | Value |", "|---|---:|"]
+        out += ["| 指標 | 數值 |", "|---|---:|"]
         out += [f"| {item.get('label', '')} | {text(item.get('value'))} |" for item in block.get("items", [])]
     elif kind == "divider":
         out.append("---")
@@ -63,7 +77,7 @@ def kelly_markdown(module: dict) -> list[str]:
     setup = guidance.get("setup_match", {}) or {}
     sample = guidance.get("sample_confidence", {}) or {}
     lines = [
-        "### KELLY 計算鏈 / 1 萬美元倉位參考",
+        "### Kelly 計算鏈 / 1 萬美元倉位參考",
         f"- **账户：** {text(guidance.get('simulation_label'))}",
         f"- **当前 20 日实现波动率：** {pct(guidance.get('current_realized_vol_20d_annualized'))}",
         f"- **日内 1σ：** {pct(guidance.get('daily_sigma'), 3)}",
@@ -73,7 +87,7 @@ def kelly_markdown(module: dict) -> list[str]:
         "",
         "| 凯利输入 | 数值 |",
         "|---|---:|",
-        f"| p / win rate | {pct(formula.get('p_win_rate'))} |",
+        f"| p / 勝率 | {pct(formula.get('p_win_rate'))} |",
         f"| b / 平均盈利 ÷ 平均亏损 | {num(formula.get('b_avg_win_over_avg_loss'), 3)} |",
         f"| 公式 Kelly | {pct(formula.get('raw_formula_kelly_fraction'))} |",
         f"| 经验对数增长 Kelly | {pct(empirical)} |",
@@ -190,7 +204,7 @@ def main() -> None:
                     f"- 看什么：{interpretation.get('what', '')}",
                     f"  - 观察到：{interpretation.get('what_observed', '')}",
                     f"- 当前解读：{interpretation.get('read', '')}",
-                    f"  - RESULT: {interpretation.get('read_result', '')}",
+                    f"  - 當前結果：{interpretation.get('read_result', '')}",
                     f"- 为什么重要：{interpretation.get('why', '')}",
                     f"  - 当前含义：{interpretation.get('why_now', '')}",
                     f"- 限制：{interpretation.get('limit', '')}",
