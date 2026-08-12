@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 import math
+from statistics import median, pstdev
 from typing import Any
 
 from stock_eval_core import f, rsi
 
-def backtest_rsi(bars: list[dict[str, Any]], entry_rsi: float = 30, exit_rsi: float = 55, cost_bps: float = 5, max_hold: int = 10) -> dict[str, Any]:
+
+def backtest_rsi(bars: list[dict[str, Any]], entry_rsi: float = 30, exit_rsi: float = 55,
+                 cost_bps: float = 5, max_hold: int = 10) -> dict[str, Any]:
     closes = [x["close"] for x in bars]
     if len(closes) < 40:
-        return {"status": "unavailable", "reason": "needs at least 40 bars"}
+        return {"status": "unavailable", "reason": "needs at least 40 bars",
+                "setup_id": "rsi14_lt30_mean_reversion_10bar_v1"}
     trades, entry = [], None
     for i in range(15, len(closes)):
         current_rsi = rsi(closes[: i + 1])
@@ -21,17 +25,56 @@ def backtest_rsi(bars: list[dict[str, Any]], entry_rsi: float = 30, exit_rsi: fl
             if (current_rsi is not None and current_rsi > exit_rsi) or held >= max_hold or i == len(closes) - 1:
                 gross = closes[i] / entry[1] - 1
                 net = gross - 2 * cost_bps / 10000
-                trades.append({"entry_date": bars[entry[0]]["date"], "exit_date": bars[i]["date"], "return": net, "hold_bars": held})
+                trades.append({"entry_date": bars[entry[0]]["date"], "exit_date": bars[i]["date"],
+                               "return": net, "hold_bars": held})
                 entry = None
     returns = [x["return"] for x in trades]
     wins = [x for x in returns if x > 0]
     losses = [x for x in returns if x <= 0]
-    return {"status": "ok", "rule": "RSI(14)<30 entry; RSI(14)>55, 10 bars, or end exit", "trades": len(trades), "win_rate": len(wins) / len(returns) if returns else None, "avg_win": sum(wins) / len(wins) if wins else None, "avg_loss": abs(sum(losses) / len(losses)) if losses else None, "total_return": math.prod(1 + x for x in returns) - 1 if returns else 0, "cost_bps_each_side": cost_bps, "trade_log": trades}
+    return {
+        "status": "ok",
+        "setup_id": "rsi14_lt30_mean_reversion_10bar_v1",
+        "rule": "RSI(14)<30 entry; RSI(14)>55, 10 bars, or end exit",
+        "trades": len(trades),
+        "win_rate": len(wins) / len(returns) if returns else None,
+        "avg_win": sum(wins) / len(wins) if wins else None,
+        "avg_loss": abs(sum(losses) / len(losses)) if losses else None,
+        "total_return": math.prod(1 + x for x in returns) - 1 if returns else 0,
+        "cost_bps_each_side": cost_bps,
+        "trade_log": trades,
+    }
+
+
+def realized_vol_reference(bars: list[dict[str, Any]], window: int = 20) -> dict[str, Any]:
+    """Return PIT rolling-RV context using the same close-return convention as technical_analysis."""
+    closes = [f(row.get("close")) for row in bars if isinstance(row, dict)]
+    closes = [x for x in closes if x is not None and x > 0]
+    if len(closes) < window + 2:
+        return {"status": "unavailable", "window": window, "reason": f"needs at least {window + 2} positive closes"}
+    log_returns = [math.log(closes[i] / closes[i - 1]) for i in range(1, len(closes))]
+    series: list[float] = []
+    for end in range(window, len(log_returns) + 1):
+        sample = log_returns[end - window:end]
+        if len(sample) >= 2:
+            series.append(pstdev(sample) * math.sqrt(252))
+    if not series:
+        return {"status": "unavailable", "window": window, "reason": "no valid rolling RV windows"}
+    reference_sample = series[:-1] or series
+    return {
+        "status": "ok",
+        "window": window,
+        "rolling_windows": len(series),
+        "current": series[-1],
+        "reference_median_prior_windows": median(reference_sample),
+        "reference_policy": "median of prior rolling windows; current window excluded when possible",
+    }
+
 
 def _log_growth(fraction: float, returns: list[float]) -> float | None:
     if not returns or any(1 + fraction * r <= 0 for r in returns):
         return None
     return sum(math.log(1 + fraction * r) for r in returns) / len(returns)
+
 
 def _grid_kelly(returns: list[float], upper: float = 1.0) -> dict[str, Any]:
     """Unlevered log-growth maximizer over a transparent fractional grid."""
@@ -48,6 +91,7 @@ def _grid_kelly(returns: list[float], upper: float = 1.0) -> dict[str, Any]:
             "mean_log_growth": best_g, "grid_step": 0.001, "fraction_cap": upper,
             "at_grid_cap": best_f >= upper}
 
+
 def _formula_kelly(returns: list[float]) -> dict[str, Any]:
     """Return the transparent p/b Kelly diagnostic alongside the log-growth grid."""
     clean = [r for r in returns if math.isfinite(r) and r > -1]
@@ -61,6 +105,7 @@ def _formula_kelly(returns: list[float]) -> dict[str, Any]:
     return {"trades": len(clean), "p_win_rate": p, "b_avg_win_over_avg_loss": b,
             "avg_win": avg_win, "avg_loss": avg_loss,
             "raw_formula_kelly_fraction": f_raw}
+
 
 def _kelly_sample_confidence(total: int, oos: int, minimum_total: int, minimum_oos: int,
                              conditional_total: int, conditional_oos: int) -> dict[str, Any]:
@@ -81,16 +126,38 @@ def _kelly_sample_confidence(total: int, oos: int, minimum_total: int, minimum_o
     return {"label": label, "tier": tier, "reasons": reasons,
             "is_validated": tier == "standard_validated"}
 
+
+def _positive(value: Any) -> float | None:
+    x = f(value)
+    return x if x is not None and math.isfinite(x) and x > 0 else None
+
+
+def _select_conservative_edge(empirical: float | None, formula: float | None, tier: str) -> dict[str, Any]:
+    candidates = []
+    if _positive(empirical) is not None:
+        candidates.append((float(empirical), f"{tier}_empirical_log_growth"))
+    if _positive(formula) is not None:
+        candidates.append((float(formula), f"{tier}_p_b_formula"))
+    if not candidates:
+        return {"status": "unavailable", "fraction": None, "source": None,
+                "candidates": {"empirical": empirical, "formula": formula}}
+    fraction, source = min(candidates, key=lambda item: item[0])
+    return {"status": "ok", "fraction": fraction, "source": source,
+            "selection_policy": "smaller positive empirical/formula estimate when both are available",
+            "candidates": {"empirical": empirical, "formula": formula}}
+
+
 def kelly_analysis(backtest: dict[str, Any], options: dict[str, Any] | None = None,
                    realized_vol: float | None = None, fractional: float = 0.25,
-                   qualification: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Return exploratory, conditional, and standard Kelly diagnostics.
+                   qualification: dict[str, Any] | None = None,
+                   realized_vol_reference: float | None = None,
+                   setup_context: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Return exploratory, conditional, standard and current-volatility Kelly diagnostics.
 
-    The empirical edge comes from the supplied fixed-rule trade returns. Options
-    only supply a conservative volatility/event haircut; they do not create
-    directional edge or real-world probabilities. Small samples still receive
-    a diagnostic number and confidence label, but only the standard tier is
-    eligible to become an automatic position cap.
+    Directional edge comes only from the supplied fixed-rule trade returns.
+    Current RV/options/event evidence can shrink or cap exposure but never creates
+    a directional probability. When validation is weak the calculation is still
+    exposed as a guide unless the edge math itself is undefined.
     """
     returns = [f(x.get("return")) for x in backtest.get("trade_log", []) if isinstance(x, dict)]
     returns = [x for x in returns if x is not None]
@@ -158,6 +225,63 @@ def kelly_analysis(backtest: dict[str, Any], options: dict[str, Any] | None = No
                           "event_front_loaded": event, "event_haircut": event_haircut,
                           "combined_haircut": overlay,
                           "interpretation": "risk haircut only; option IV is risk-neutral and does not supply directional alpha"}
+
+    rv_ref = _positive(realized_vol_reference)
+    current_rv = _positive(realized_vol)
+    rv_regime_haircut = min(1.0, rv_ref / current_rv) if rv_ref is not None and current_rv is not None else None
+    rv_overlay = {
+        "status": "applied" if rv_regime_haircut is not None else "unavailable_reference" if current_rv is not None else "unavailable_current_rv",
+        "current_realized_vol_20d_annualized": current_rv,
+        "reference_realized_vol_20d_annualized": rv_ref,
+        "daily_sigma": current_rv / math.sqrt(252) if current_rv is not None else None,
+        "rv_regime_haircut": rv_regime_haircut,
+        "policy": "min(1, reference_RV/current_RV); never upsize because current RV is low",
+    }
+
+    if oos_status in {"qualified", "conditional"}:
+        selected = _select_conservative_edge(conditional_fraction, conditional_formula_fraction, "oos")
+    else:
+        selected = _select_conservative_edge(exploratory_fraction, exploratory_formula_fraction, "full_sample")
+
+    risk_haircuts = []
+    option_haircut = option_overlay.get("combined_haircut") if isinstance(option_overlay, dict) else None
+    if _positive(option_haircut) is not None:
+        risk_haircuts.append((float(option_haircut), "option_event"))
+    if _positive(rv_regime_haircut) is not None:
+        risk_haircuts.append((float(rv_regime_haircut), "rv_regime"))
+    combined_risk_haircut = min((item[0] for item in risk_haircuts), default=1.0)
+    active_haircut_sources = [name for value, name in risk_haircuts if value == combined_risk_haircut]
+    selected_after_haircut = (selected.get("fraction") * combined_risk_haircut) if selected.get("fraction") is not None else None
+
+    setup_context = setup_context or {}
+    backtest_setup_id = setup_context.get("backtest_setup_id") or backtest.get("setup_id") or backtest.get("rule")
+    current_setup_id = setup_context.get("current_setup_id")
+    setup_match_status = setup_context.get("setup_match_status") or ("exact" if current_setup_id and current_setup_id == backtest_setup_id else "unknown")
+    setup_match = {"current_setup_id": current_setup_id, "backtest_setup_id": backtest_setup_id,
+                   "status": setup_match_status,
+                   "interpretation": "mismatch/unknown does not erase the diagnostic; it downgrades it to proxy guidance rather than validated sizing"}
+
+    guidance_scenarios: dict[str, Any] = {}
+    if selected_after_haircut is not None and selected_after_haircut > 0:
+        for label, multiplier in (("full", 1.0), ("half", 0.50), ("quarter", 0.25)):
+            guidance_scenarios[label] = {
+                "multiplier": multiplier,
+                "base_edge_fraction": selected.get("fraction"),
+                "combined_risk_haircut": combined_risk_haircut,
+                "post_overlay_fraction": selected_after_haircut * multiplier,
+            }
+
+    if not guidance_scenarios:
+        guidance_status = "unavailable_no_positive_edge"
+    elif sample_confidence.get("tier") == "standard_validated" and setup_match_status in {"exact", "compatible"}:
+        guidance_status = "validated"
+    elif sample_confidence.get("tier") == "conditional_tactical":
+        guidance_status = "conditional"
+    elif setup_match_status == "mismatch":
+        guidance_status = "proxy_setup_mismatch"
+    else:
+        guidance_status = "exploratory"
+
     full_fraction = adjusted_fraction if adjusted_fraction is not None else None
     half_fraction = (full_fraction * 0.50) if full_fraction is not None else None
     quarter_fraction = (full_fraction * 0.25) if full_fraction is not None else None
@@ -179,44 +303,61 @@ def kelly_analysis(backtest: dict[str, Any], options: dict[str, Any] | None = No
             }
     diagnostic_final_cap = (diagnostic_kelly_scenarios.get("quarter", {}).get("concentration_capped_fraction")
                             if diagnostic_kelly_scenarios else None)
+
     limitations = [
-        "Kelly edge is estimated from the deterministic RSI trade log, not from a fundamental or discretionary stock thesis",
+        "Kelly edge is estimated from the deterministic setup trade log, not from a fundamental/discretionary thesis",
         "standard validation requires at least 60 total trades and at least 30 reserved OOS trades",
-        "short samples produce exploratory/conditional diagnostics with low confidence; they are not validated Kelly",
-        "options IV changes the risk haircut only; it cannot identify direction, expected return, or real-world probability",
-        "the result is an unlevered capital-fraction upper bound and must still be capped by stop loss, concentration, liquidity, and mandate",
+        "short samples produce exploratory/conditional diagnostics; they are not validated Kelly",
+        "setup mismatch or unknown setup identity downgrades Kelly to proxy guidance rather than erasing the calculation",
+        "options IV and current RV change risk overlays only; neither creates directional alpha",
+        "full Kelly is estimation-error sensitive; half and quarter are robustness variants and quarter is the conservative report guide by default",
+        "the final position must still be capped by stop loss, concentration, liquidity and mandate",
     ]
     if options is not None and options.get("quote_quality_counts", {}).get("bid_ask_mid", 0) == 0:
         limitations.append("option overlay uses last/model IV because no executable bid/ask rows were available")
     if full.get("at_grid_cap") or oos.get("at_grid_cap"):
         limitations.append("Kelly optimizer reached its diagnostic grid cap; do not interpret the cap as a precise fraction")
-    return {"status": "qualified" if oos_status == "qualified" else "conditional_insufficient_data",
-            "method": "empirical log-growth Kelly on fixed-rule trade returns plus conservative option-risk haircut",
-            "full_sample": full, "full_sample_formula": full_formula,
-            "out_of_sample": oos, "out_of_sample_formula": oos_formula,
-            "exploratory_full_sample_kelly_fraction": exploratory_fraction,
-            "conditional_oos_kelly_fraction": conditional_fraction,
-            "raw_oos_kelly_fraction": base_fraction,
-            "exploratory_formula_kelly_fraction": exploratory_formula_fraction,
-            "conditional_formula_kelly_fraction": conditional_formula_fraction,
-            "option_risk_overlay": option_overlay, "fractional_kelly_multiplier": fractional,
-            "full_kelly_fraction": full_fraction,
-            "half_kelly_fraction": half_fraction,
-            "quarter_kelly_fraction": quarter_fraction,
-            "exploratory_fractional_kelly_fraction": exploratory_fractional,
-            "conditional_fractional_kelly_fraction": conditional_fractional,
-            "exploratory_formula_fractional_kelly_fraction": exploratory_formula_fractional,
-            "conditional_formula_fractional_kelly_fraction": conditional_formula_fractional,
-            "fractional_kelly_fraction": fractional_fraction,
-            "diagnostic_fractional_kelly_cap": diagnostic_final_cap,
-            "diagnostic_kelly_scenarios": diagnostic_kelly_scenarios,
-            "diagnostic_cap_inputs": {"concentration_cap_pct": concentration_cap_pct,
-                                      "source": "conditional OOS formula Kelly when available, else full-sample formula Kelly",
-                                      "status": "diagnostic_only_until_standard_oos_qualified"},
-            "sample_confidence": sample_confidence,
-            "qualification": {"standard_total": minimum_total, "standard_oos": minimum_oos,
-                               "conditional_total": conditional_total, "conditional_oos": conditional_oos},
-            "applied_to_position": fractional_fraction is not None,
-            "sizing_decision": "apply_validated_fractional_kelly_as_cap" if fractional_fraction is not None else "show_diagnostic_use_fixed_risk_by_default",
-            "limitations": limitations}
 
+    return {
+        "status": "qualified" if oos_status == "qualified" else "conditional_insufficient_data",
+        "method": "empirical log-growth and p/b Kelly on setup trade returns plus conservative current-risk overlays",
+        "full_sample": full,
+        "full_sample_formula": full_formula,
+        "out_of_sample": oos,
+        "out_of_sample_formula": oos_formula,
+        "exploratory_full_sample_kelly_fraction": exploratory_fraction,
+        "conditional_oos_kelly_fraction": conditional_fraction,
+        "raw_oos_kelly_fraction": base_fraction,
+        "exploratory_formula_kelly_fraction": exploratory_formula_fraction,
+        "conditional_formula_kelly_fraction": conditional_formula_fraction,
+        "option_risk_overlay": option_overlay,
+        "rv_regime_overlay": rv_overlay,
+        "risk_overlay_combination": {"combined_haircut": combined_risk_haircut,
+                                     "policy": "minimum valid haircut; do not multiply overlapping volatility/event penalties",
+                                     "binding_sources": active_haircut_sources},
+        "setup_match": setup_match,
+        "selected_edge": selected,
+        "guidance_status": guidance_status,
+        "guidance_variant": "quarter" if guidance_scenarios else None,
+        "guidance_kelly_scenarios": guidance_scenarios,
+        "fractional_kelly_multiplier": fractional,
+        "full_kelly_fraction": full_fraction,
+        "half_kelly_fraction": half_fraction,
+        "quarter_kelly_fraction": quarter_fraction,
+        "exploratory_fractional_kelly_fraction": exploratory_fractional,
+        "conditional_fractional_kelly_fraction": conditional_fractional,
+        "exploratory_formula_fractional_kelly_fraction": exploratory_formula_fractional,
+        "conditional_formula_fractional_kelly_fraction": conditional_formula_fractional,
+        "fractional_kelly_fraction": fractional_fraction,
+        "diagnostic_fractional_kelly_cap": diagnostic_final_cap,
+        "diagnostic_kelly_scenarios": diagnostic_kelly_scenarios,
+        "diagnostic_cap_inputs": {"concentration_cap_pct": concentration_cap_pct,
+                                  "source": "conditional OOS formula Kelly when available, else full-sample formula Kelly",
+                                  "status": "diagnostic_only_until_standard_oos_qualified"},
+        "sample_confidence": sample_confidence,
+        "qualification": {"standard_total": minimum_total, "standard_oos": minimum_oos,
+                           "conditional_total": conditional_total, "conditional_oos": conditional_oos},
+        "applied_to_position": fractional_fraction is not None,
+        "sizing_decision": "apply_validated_fractional_kelly_as_cap" if fractional_fraction is not None else "show_diagnostic_guidance_and_apply_portfolio_caps",
+        "limitations": limitations,
+    }
