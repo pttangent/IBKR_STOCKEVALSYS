@@ -16,12 +16,86 @@ from stock_eval_kelly import backtest_rsi, kelly_analysis, realized_vol_referenc
 from stock_eval_position import kelly_position_guidance, pnl_ladder, position_size
 
 
+def _guard_position_guidance(kelly: dict[str, Any], guidance: dict[str, Any], entry: float,
+                             stop: float | None, portfolio_value: float,
+                             risk_budget_pct: float, concentration_cap_pct: float,
+                             portfolio_source: str) -> dict[str, Any]:
+    """Prevent a mathematically extreme tiny-sample Kelly diagnostic becoming sizing.
+
+    The raw Kelly object remains untouched for audit. Only its translation into a
+    position guide is blocked. A valid structural stop may still support a
+    clearly labelled risk-only fallback.
+    """
+    full = kelly.get("full_sample", {}) or {}
+    formula = kelly.get("full_sample_formula", {}) or {}
+    if "trades" not in full:
+        return guidance
+    trades = int(full.get("trades") or 0)
+    reasons = []
+    if trades < 10:
+        reasons.append(f"only {trades} completed setup trades; fewer than 10 is diagnostic-only")
+    if full.get("at_grid_cap") and formula.get("raw_formula_kelly_fraction") is None:
+        reasons.append("empirical Kelly hit the diagnostic grid cap while p/b Kelly is undefined")
+    if not reasons:
+        return guidance
+
+    rv = (kelly.get("rv_regime_overlay", {}) or {}).get("current_realized_vol_20d_annualized")
+    daily_sigma = (kelly.get("rv_regime_overlay", {}) or {}).get("daily_sigma")
+    simulation_label = "$10,000 SIMULATION" if portfolio_source == "default_10000_simulation" else "USER PORTFOLIO"
+    if stop is not None and 0 < stop < entry:
+        stop_distance = (entry - stop) / entry
+        stop_cap = risk_budget_pct / stop_distance
+        final_fraction = min(stop_cap, concentration_cap_pct)
+        binding = "stop_risk_cap" if stop_cap <= concentration_cap_pct else "concentration_cap"
+        notional = portfolio_value * final_fraction
+        return {
+            "status": "risk_only_fallback",
+            "guidance_status": "risk_only_tiny_sample_kelly_blocked",
+            "guidance_variant": "risk_only",
+            "portfolio_value": portfolio_value,
+            "portfolio_value_source": portfolio_source,
+            "simulation_label": simulation_label,
+            "entry": entry,
+            "stop": stop,
+            "risk_budget_pct": risk_budget_pct,
+            "risk_budget_dollars": portfolio_value * risk_budget_pct,
+            "concentration_cap_pct": concentration_cap_pct,
+            "stop_distance_pct": stop_distance,
+            "stop_risk_cap_fraction": stop_cap,
+            "current_realized_vol_20d_annualized": rv,
+            "daily_sigma": daily_sigma,
+            "edge_eligibility": {"eligible_for_position_guidance": False, "reasons": reasons},
+            "variants": {},
+            "guidance_fraction": final_fraction,
+            "guidance_notional_dollars": notional,
+            "guidance_exact_fractional_shares": notional / entry,
+            "guidance_binding_constraint": binding,
+            "interpretation": "Kelly diagnostic is too immature for sizing; fixed-risk/concentration guidance only.",
+        }
+    return {
+        "status": "unavailable",
+        "guidance_status": "severe_data_gap",
+        "guidance_variant": None,
+        "portfolio_value": portfolio_value,
+        "portfolio_value_source": portfolio_source,
+        "simulation_label": simulation_label,
+        "entry": entry,
+        "stop": stop,
+        "current_realized_vol_20d_annualized": rv,
+        "daily_sigma": daily_sigma,
+        "edge_eligibility": {"eligible_for_position_guidance": False, "reasons": reasons},
+        "variants": {},
+        "reason": "Kelly diagnostic is too immature for sizing and no valid structural stop exists for risk-only guidance",
+    }
+
+
 def evaluate(symbol: str, bars_payload: Any, front_payload: Any | None = None,
              back_payload: Any | None = None, as_of: str | None = None,
              portfolio_value: float | None = None, stop: float | None = None,
              risk_budget_pct: float = 0.005, concentration_cap_pct: float = 0.05,
              current_setup_id: str | None = None,
-             setup_match_status: str | None = None) -> dict[str, Any]:
+             setup_match_status: str | None = None,
+             portfolio_value_source: str | None = None) -> dict[str, Any]:
     bars = normalize_bars(bars_payload)
     tech = technical_analysis(bars)
     backtest = backtest_rsi(bars)
@@ -57,11 +131,15 @@ def evaluate(symbol: str, bars_payload: Any, front_payload: Any | None = None,
     )
 
     simulation_value = portfolio_value if portfolio_value is not None else 10000.0
-    portfolio_source = "user_provided" if portfolio_value is not None else "default_10000_simulation"
-    out["position_guidance"] = kelly_position_guidance(
+    portfolio_source = portfolio_value_source or ("user_provided" if portfolio_value is not None else "default_10000_simulation")
+    raw_guidance = kelly_position_guidance(
         out["kelly"], tech["last_price"], simulation_value, stop=stop,
         risk_budget_pct=risk_budget_pct, concentration_cap_pct=concentration_cap_pct,
         portfolio_value_source=portfolio_source,
+    )
+    out["position_guidance"] = _guard_position_guidance(
+        out["kelly"], raw_guidance, tech["last_price"], stop, simulation_value,
+        risk_budget_pct, concentration_cap_pct, portfolio_source,
     )
 
     if portfolio_value is not None:
@@ -73,7 +151,7 @@ def evaluate(symbol: str, bars_payload: Any, front_payload: Any | None = None,
         )
     else:
         out["position"] = {"status": "not_requested",
-                           "note": "position_guidance still provides a labeled $10,000 simulation"}
+                           "note": "position_guidance still provides a labeled $10,000 simulation when eligible"}
     out["research_posture"] = {
         "evidence_completeness": "technical-only" if front_payload is None else "technical-plus-options",
         "underwriting_status": "preliminary; fundamentals, filings, catalysts, and valuation inputs are external evidence modules",
@@ -90,6 +168,8 @@ def main() -> None:
     ap.add_argument("--options-back")
     ap.add_argument("--as-of")
     ap.add_argument("--portfolio-value", type=float)
+    ap.add_argument("--portfolio-value-source", choices=["user_provided", "default_10000_simulation"],
+                    help="set default_10000_simulation when an orchestrator passes 10000 only to materialize the default example account")
     ap.add_argument("--stop", type=float)
     ap.add_argument("--risk-budget-pct", type=float, default=0.005)
     ap.add_argument("--concentration-cap-pct", type=float, default=0.05)
@@ -109,6 +189,7 @@ def main() -> None:
         args.concentration_cap_pct,
         args.current_setup_id,
         args.setup_match_status,
+        args.portfolio_value_source,
     )
     payload = json.dumps(result, ensure_ascii=False, indent=2)
     if args.out:
