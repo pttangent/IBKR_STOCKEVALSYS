@@ -27,11 +27,17 @@ def ratio(numerator: int, denominator: int) -> float | None:
     return numerator / denominator if denominator else None
 
 
-def pick_iv(row: dict, spot: float, years: float) -> tuple[float | None, str | None]:
+def pick_iv(row: dict, spot: float, years: float, provider: str | None = None) -> tuple[float | None, str | None]:
     provider_iv = num(row.get("iv"))
-    if provider_iv is not None and 0 < provider_iv < 5:
-        return provider_iv, "provider_iv"
     last_iv = implied_vol(row.get("last"), spot, num(row.get("strike")), years, row.get("type"))
+    bid, ask = num(row.get("bid")), num(row.get("ask"))
+    executable_quote = bid is not None and ask is not None and bid > 0 and ask >= bid
+    provider_iv_plausible = provider_iv is not None and 0.01 <= provider_iv <= 5.0
+    # yfinance often exposes placeholder IVs without a timestamped quote. Do
+    # not let a syntactically positive 0.00001 IV contaminate Gamma.
+    if provider_iv_plausible and (provider != "yfinance" or executable_quote):
+        if last_iv is None or provider_iv >= 0.05 or abs(provider_iv - last_iv) <= max(0.10, 0.50 * last_iv):
+            return provider_iv, "provider_iv"
     if last_iv is not None and 0 < last_iv < 5:
         return last_iv, "last_iv_model"
     return None, None
@@ -62,7 +68,7 @@ def summarize(packet: dict, as_of: str | None = None, near_pct: float = 0.03) ->
         if strike is None or years is None or option_type not in {"call", "put"}:
             continue
         eligible_rows += 1
-        sigma, iv_source = pick_iv(row, spot, years)
+        sigma, iv_source = pick_iv(row, spot, years, str(packet.get("provider") or ""))
         gamma = bs_gamma(spot, strike, years, sigma) if sigma is not None else None
         oi = num(row.get("open_interest"))
         if gamma is not None:

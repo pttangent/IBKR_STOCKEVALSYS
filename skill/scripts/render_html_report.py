@@ -133,13 +133,27 @@ def chart_for(chart: dict, run: Path, report: dict) -> str:
             return fig_html(fig, 320)
         price = tech.get("last_price")
         sr = tech.get("support_resistance", {})
-        supports = [x for x in sr.get("supports", [])[:5] if isinstance(x, (int, float))]
-        resistances = [x for x in sr.get("resistances", [])[:5] if isinstance(x, (int, float))]
-        if price is None:
+        if not isinstance(price, (int, float)):
             return ""
-        labels = ["PRICE"] + [f"S{i+1}" for i in range(len(supports))] + [f"R{i+1}" for i in range(len(resistances))]
-        values = [price] + supports + resistances
-        fig = go.Figure(go.Bar(y=labels, x=values, orientation="h", text=[f"{value:.2f}" for value in values], textposition="outside"))
+        # Keep the current price between the two sides of the map.  Provider
+        # labels can be stale or loosely ordered, so enforce the numeric
+        # relationship instead of drawing a misleading categorical chart.
+        supports = sorted(
+            [x for x in sr.get("supports", []) if isinstance(x, (int, float)) and x < price],
+            reverse=True,
+        )[:5]
+        resistances = sorted(
+            [x for x in sr.get("resistances", []) if isinstance(x, (int, float)) and x > price],
+        )[:5]
+        levels = [(value, f"S{i+1}", "#22c55e") for i, value in enumerate(supports)]
+        levels += [(price, "PRICE", "#fafafa")]
+        levels += [(value, f"R{i+1}", "#ef4444") for i, value in enumerate(resistances)]
+        levels.sort(key=lambda item: item[0])
+        labels = [item[1] for item in levels]
+        values = [item[0] for item in levels]
+        colors = [item[2] for item in levels]
+        fig = go.Figure(go.Bar(y=labels, x=values, orientation="h", marker_color=colors, text=[f"{value:.2f}" for value in values], textposition="outside", name="PRICE LEVEL"))
+        fig.update_layout(xaxis_title="PRICE (USD)", yaxis_title="OBSERVED LEVEL", showlegend=False)
         return fig_html(fig, 340)
 
     if kind == "options_variance":
@@ -189,9 +203,12 @@ def block_html(block: dict) -> str:
 
 def explanation(chart: dict) -> str:
     interpretation = chart.get("interpretation", {})
+    pairs = [("WHAT", "what", "what_observed"), ("READ", "read", "read_result"),
+             ("WHY", "why", "why_now"), ("LIMIT", "limit", "limit_effect")]
     return "<div class='explain'>" + "".join(
-        f"<div><div class='xk'>{key}</div><div class='xv'>{esc(interpretation.get(key.lower(), ''))}</div></div>"
-        for key in ["WHAT", "READ", "WHY", "LIMIT"]
+        f"<div><div class='xk'>{key}</div><div class='xv'>{esc(interpretation.get(definition, ''))}</div>"
+        f"<div class='xo'>{esc(interpretation.get(observation, ''))}</div></div>"
+        for key, definition, observation in pairs
     ) + "</div>"
 
 
@@ -261,7 +278,12 @@ def main() -> None:
                 f"<div class='chart'>{chart_for(chart, run, data)}</div>{explanation(chart)}</div></div>"
             )
         if module.get("missing_fields"):
-            pieces.append("<div class='panel missing'><h3>MISSING / 缺失</h3><ul>" + "".join(f"<li>{esc(item)}</li>" for item in module["missing_fields"]) + "</ul></div>")
+            resolutions = {item.get("field"): item for item in module.get("evidence_resolution", []) if isinstance(item, dict)}
+            rows = []
+            for item in module["missing_fields"]:
+                resolution = resolutions.get(item, {})
+                rows.append(f"<li><b>{esc(item)}</b> · STATUS={esc(resolution.get('status', 'UNRESOLVED'))} · ACTION={esc(resolution.get('next_action', 'record exact source route and retry'))}</li>")
+            pieces.append("<div class='panel missing'><h3>MISSING / RESOLUTION AUDIT</h3><ul>" + "".join(rows) + "</ul></div>")
         pieces.append("</div></section>")
         modules.append("".join(pieces))
 

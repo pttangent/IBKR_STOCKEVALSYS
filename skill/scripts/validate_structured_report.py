@@ -7,7 +7,7 @@ from pathlib import Path
 
 STATES = {"RESEARCH_READY", "READY_CONDITIONAL", "WAIT_CONFIRMATION", "NEEDS_EVIDENCE", "RISK_BLOCKED", "MONITOR_ONLY", "THESIS_INVALIDATED"}
 REQUIRED_MODULE = {"title", "status", "freshness_status", "source_artifacts", "missing_fields"}
-REQUIRED_INTERPRETATION = {"what", "read", "why", "limit"}
+REQUIRED_INTERPRETATION = {"what", "what_observed", "read", "read_result", "why", "why_now", "limit", "limit_effect"}
 
 
 def validate(data: dict) -> list[str]:
@@ -34,6 +34,15 @@ def validate(data: dict) -> list[str]:
             for key in REQUIRED_INTERPRETATION:
                 if not str(interpretation.get(key) or "").strip():
                     errors.append(f"module {name} chart {chart.get('id', index)} missing interpretation.{key}")
+        missing = module.get("missing_fields", [])
+        resolutions = module.get("evidence_resolution", [])
+        if missing and not isinstance(resolutions, list):
+            errors.append(f"module {name} missing evidence_resolution for unresolved fields")
+        if isinstance(resolutions, list):
+            resolved_fields = {item.get("field") for item in resolutions if isinstance(item, dict)}
+            for field in missing:
+                if field not in resolved_fields:
+                    errors.append(f"module {name} missing resolution record for {field}")
     return errors
 
 

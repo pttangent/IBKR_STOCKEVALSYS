@@ -160,6 +160,8 @@ A full-research package should be portable enough to audit without re-browsing. 
 
 A URL in prose is navigation, not a replacement for a frozen primary-source artifact when replay completeness matters.
 
+Before any field is shown as `MISSING`, run the relevant primary/alternative source route and write an `evidence_resolution` record containing the exact field, status (`FOUND`, `NOT_AVAILABLE_AT_CUTOFF`, `ERROR`, or `NOT_AUDITED`), attempts, source documents, retrieval/cutoff time, and next action. A field with status `FOUND` must be removed from `missing_fields`. `NOT_AVAILABLE_AT_CUTOFF` means the route was queried and no qualifying document existed by the stated cutoff; it does not mean the document can never be found.
+
 ## 8. Modular output
 
 `structured_report.json` can contain all modules while a renderer selects a subset. A narrow request does not need to rebuild the entire research workflow if the requested conclusion is independent.

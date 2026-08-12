@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -56,7 +57,7 @@ CANONICAL_CONCEPTS: dict[str, tuple[tuple[str, str], ...]] = {
     "shares_outstanding": (("dei", "EntityCommonStockSharesOutstanding"),),
 }
 
-ALLOWED_FORMS = {"10-K", "10-Q", "8-K", "4", "SC 13D", "SC 13G", "SC 13D/A", "SC 13G/A"}
+ALLOWED_FORMS = {"10-K", "10-Q", "8-K", "4", "424B5", "S-3ASR", "FWP", "SC 13D", "SC 13G", "SC 13D/A", "SC 13G/A"}
 
 
 def _headers_for(url: str, user_agent: str) -> dict[str, str]:
@@ -289,6 +290,46 @@ def fetch_form4_details(cik: str, filings: list[dict[str, Any]], user_agent: str
     return output
 
 
+def download_primary_documents(cik: str, filings: list[dict[str, Any]], user_agent: str, output_dir: Path) -> list[dict[str, Any]]:
+    """Freeze primary SEC documents locally so replay does not depend on URLs."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+    captured: list[dict[str, Any]] = []
+    for filing in filings:
+        if filing.get("form") == "4":
+            continue
+        url = filing_document_url(cik, filing)
+        if not url:
+            continue
+        accession = str(filing.get("accessionNumber") or "unknown").replace("-", "")
+        primary = Path(str(filing.get("primaryDocument") or "document")).name
+        target = output_dir / f"{accession}_{primary}"
+        try:
+            raw = request_bytes(url, headers=_headers_for(url, user_agent), retries=1)
+            target.write_bytes(raw)
+            captured.append({
+                "form": filing.get("form"),
+                "filing_date": filing.get("filingDate"),
+                "acceptance_date_time": filing.get("acceptanceDateTime"),
+                "accession_number": filing.get("accessionNumber"),
+                "url": url,
+                "path": str(target),
+                "size_bytes": len(raw),
+                "sha256": hashlib.sha256(raw).hexdigest(),
+                "status": "captured",
+            })
+        except Exception as exc:
+            captured.append({
+                "form": filing.get("form"),
+                "filing_date": filing.get("filingDate"),
+                "acceptance_date_time": filing.get("acceptanceDateTime"),
+                "accession_number": filing.get("accessionNumber"),
+                "url": url,
+                "status": "error",
+                "error": f"{type(exc).__name__}: {exc}",
+            })
+    return captured
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Fetch PIT-safe SEC research evidence for one US-listed company.")
     ap.add_argument("--symbol", required=True)
@@ -297,6 +338,7 @@ def main() -> None:
     ap.add_argument("--filing-limit", type=int, default=40)
     ap.add_argument("--form4-limit", type=int, default=5)
     ap.add_argument("--skip-companyfacts", action="store_true")
+    ap.add_argument("--download-primary-documents-dir", help="directory for frozen SEC primary documents")
     args = ap.parse_args()
 
     as_of = args.as_of or date.today().isoformat()
@@ -309,6 +351,7 @@ def main() -> None:
     filings = recent_filings(submissions, as_of=as_of, limit=args.filing_limit)
     companyfacts = None if args.skip_companyfacts else get_companyfacts(cik, user_agent)
     form4 = fetch_form4_details(cik, filings, user_agent, args.form4_limit)
+    captured_documents = download_primary_documents(cik, filings, user_agent, Path(args.download_primary_documents_dir)) if args.download_primary_documents_dir else []
 
     data: dict[str, Any] = {
         "identity": identity,
@@ -324,6 +367,7 @@ def main() -> None:
         ],
         "canonical_financials": extract_canonical_financials(companyfacts, as_of) if companyfacts else None,
         "form4": form4,
+        "captured_primary_documents": captured_documents,
     }
     packet = source_packet(
         provider="SEC_EDGAR",
@@ -347,4 +391,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

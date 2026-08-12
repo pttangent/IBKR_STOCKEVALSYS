@@ -37,6 +37,26 @@ def cursor_before(value: Any) -> str:
     return stamp.strftime("%Y%m%d %H:%M:%S US/Eastern")
 
 
+def normalize_end_cursor(value: str) -> tuple[str, dict[str, Any]]:
+    """Never request a future RTH cursor; fall back to the prior completed weekday."""
+    eastern = ZoneInfo("America/New_York")
+    now = dt.datetime.now(eastern)
+    requested = value or ""
+    if not requested:
+        return "", {"requested": requested, "adjusted": False, "reason": "provider_default"}
+    try:
+        parsed = dt.datetime.strptime(requested.split(" US/")[0], "%Y%m%d %H:%M:%S").replace(tzinfo=eastern)
+    except ValueError:
+        return requested, {"requested": requested, "adjusted": False, "reason": "unparsed_cursor"}
+    if parsed <= now:
+        return requested, {"requested": requested, "adjusted": False, "reason": "completed_or_current_cursor"}
+    candidate = parsed.date() - dt.timedelta(days=1)
+    while candidate.weekday() >= 5:
+        candidate -= dt.timedelta(days=1)
+    adjusted = f"{candidate:%Y%m%d} 16:00:00 US/Eastern"
+    return adjusted, {"requested": requested, "adjusted": True, "adjusted_to": adjusted, "reason": "requested_cursor_in_future"}
+
+
 def session_complete(rows: list[dict[str, Any]], bar_size: str) -> bool:
     """Require both RTH endpoints before counting a date as complete."""
     if not rows:
@@ -75,7 +95,7 @@ async def fetch(symbol: str, sessions: int, client_id: int, bar_size: str, what_
     try:
         contract = (await ib.qualifyContractsAsync(Stock(symbol.upper(), "SMART", "USD")))[0]
         all_bars: dict[str, dict[str, Any]] = {}
-        cursor = end_date_time
+        cursor, cursor_audit = normalize_end_cursor(end_date_time)
         for index in range(max_pages):
             started = dt.datetime.now(dt.timezone.utc)
             bars = await asyncio.wait_for(
@@ -125,7 +145,8 @@ async def fetch(symbol: str, sessions: int, client_id: int, bar_size: str, what_
         return {"provider": "ibkr-tws", "retrieved_at": dt.datetime.now(dt.timezone.utc).isoformat(),
                 "symbol": symbol.upper(),
                 "request": {"duration_per_page": "14400 S", "bar_size": bar_size, "what_to_show": what_to_show,
-                             "end_date_time": end_date_time, "use_rth": use_rth, "target_sessions": sessions},
+                             "end_date_time": end_date_time, "effective_end_date_time": cursor, "cursor_audit": cursor_audit,
+                             "use_rth": use_rth, "target_sessions": sessions},
                 "connection": {"host": host, "port": port, "readonly": True},
                 "pagination": {"pages_requested": len(requests), "requests": requests, "deduplicated": True,
                                 "session_dates": dates, "session_count": len(dates), "complete_session_dates": complete_dates,

@@ -44,6 +44,7 @@
         "source_artifacts": {"type": "array", "items": {"type": "string"}},
         "evidence_ids": {"type": "array", "items": {"type": "string"}},
         "missing_fields": {"type": "array", "items": {"type": "string"}},
+        "evidence_resolution": {"type": "array", "items": {"type": "object", "required": ["field", "status", "attempts"], "properties": {"field": {"type": "string"}, "status": {"type": "string"}, "attempts": {"type": "array"}, "next_action": {"type": "string"}}, "additionalProperties": true}},
         "metrics": {"type": "object"},
         "blocks": {"type": "array", "items": {"$ref": "#/$defs/block"}},
         "judgments": {"type": "array", "items": {"$ref": "#/$defs/judgment"}},
@@ -104,12 +105,16 @@
         "config": {"type": "object"},
         "interpretation": {
           "type": "object",
-          "required": ["what", "read", "why", "limit"],
+          "required": ["what", "what_observed", "read", "read_result", "why", "why_now", "limit", "limit_effect"],
           "properties": {
             "what": {"type": "string"},
+            "what_observed": {"type": "string"},
             "read": {"type": "string"},
+            "read_result": {"type": "string"},
             "why": {"type": "string"},
-            "limit": {"type": "string"}
+            "why_now": {"type": "string"},
+            "limit": {"type": "string"},
+            "limit_effect": {"type": "string"}
           }
         }
       },

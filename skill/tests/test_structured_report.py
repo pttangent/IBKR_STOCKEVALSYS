@@ -39,13 +39,13 @@ class StructuredReportTests(unittest.TestCase):
                         "id": "state",
                         "kind": "technical_snapshot",
                         "title": "STATE",
-                        "interpretation": {"what": "x", "read": "y", "why": "z", "limit": "q"},
+                    "interpretation": {"what": "x", "what_observed": "x1", "read": "y", "read_result": "y1", "why": "z", "why_now": "z1", "limit": "q", "limit_effect": "q1"},
                     }],
                 }
             },
         }
         self.assertEqual(VALIDATOR.validate(report), [])
-        del report["modules"]["technical"]["charts"][0]["interpretation"]["limit"]
+        del report["modules"]["technical"]["charts"][0]["interpretation"]["limit_effect"]
         self.assertTrue(any("interpretation.limit" in error for error in VALIDATOR.validate(report)))
 
     def test_default_charts_always_explain_what_read_why_limit(self):
@@ -56,8 +56,9 @@ class StructuredReportTests(unittest.TestCase):
             charts = BUILDER.default_charts("technical", run, stock, {}, {})
             self.assertGreaterEqual(len(charts), 3)
             for chart in charts:
-                self.assertEqual(set(["what", "read", "why", "limit"]) - set(chart["interpretation"]), set())
-                self.assertTrue(all(str(chart["interpretation"][key]).strip() for key in ["what", "read", "why", "limit"]))
+                required = ["what", "what_observed", "read", "read_result", "why", "why_now", "limit", "limit_effect"]
+                self.assertEqual(set(required) - set(chart["interpretation"]), set())
+                self.assertTrue(all(str(chart["interpretation"][key]).strip() for key in required))
 
 
 if __name__ == "__main__":

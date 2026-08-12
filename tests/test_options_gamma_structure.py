@@ -61,6 +61,16 @@ class OptionsGammaStructureTests(unittest.TestCase):
         self.assertEqual(result["summary"]["top_gamma_concentrations"], [])
         self.assertIsNone(result["signed_gex_scenarios"])
 
+    def test_yfinance_placeholder_iv_is_not_used_as_provider_iv(self):
+        packet = {
+            "provider": "yfinance",
+            "symbol": "IVTEST",
+            "spot": 100.0,
+            "options": [{"type": "call", "expiry": "2026-08-21", "strike": 100, "iv": 0.004, "open_interest": 1000, "last": 3.0}],
+        }
+        result = MOD.summarize(packet, "2026-08-11")
+        self.assertEqual(result["data_quality"]["iv_source_counts"], {"last_iv_model": 1})
+
 
 if __name__ == "__main__":
     unittest.main()

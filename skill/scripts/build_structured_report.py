@@ -112,7 +112,71 @@ def default_charts(name: str, run: Path, stock: dict, options: dict, gamma: dict
                     "limit": "OI 不告訴 dealer/customer side；零或不可信 OI 必須 suppress wall，不能硬選最大值。"
                 }
             })
+    for chart in charts:
+        chart["interpretation"] = _enrich_interpretation(chart, tech, options, gamma)
     return charts
+
+
+def _enrich_interpretation(chart: dict, tech: dict, options: dict, gamma: dict) -> dict:
+    """Add current observations/results to the generic chart explanation."""
+    interpretation = copy.deepcopy(chart.get("interpretation", {}))
+    ma = tech.get("ma", {})
+    momentum = tech.get("momentum", {})
+    sr = tech.get("support_resistance", {})
+    price = tech.get("last_price")
+    if chart.get("id") == "price_structure":
+        interpretation.update({
+            "what_observed": f"Price={price}; EMA20={ma.get('ema20')}; SMA50={ma.get('sma50')}; SMA200={ma.get('sma200')}; 20D={tech.get('return_20d')}; 90D={tech.get('return_90d')}.",
+            "read_result": f"Observed short/medium structure is {'below' if price is not None and ma.get('ema20') and price < ma.get('ema20') else 'above'} EMA20 and {'below' if price is not None and ma.get('sma50') and price < ma.get('sma50') else 'above'} SMA50, while 90D return is {tech.get('return_90d')}.",
+            "why_now": "Current evidence supports a pullback/reclaim test, not an already-confirmed long-term reversal.",
+            "limit_effect": "No same-session flow confirmation; the chart cannot validate the next directional move."
+        })
+    elif chart.get("id") == "technical_snapshot":
+        interpretation.update({
+            "what_observed": f"20D={tech.get('return_20d')}; 90D={tech.get('return_90d')}; RSI14={momentum.get('rsi14')}; RV20={tech.get('realized_vol_20d_annualized')}.",
+            "read_result": f"RSI14={momentum.get('rsi14')} is not an oversold reading; 20D and 90D returns conflict; RV20={tech.get('realized_vol_20d_annualized')} implies wide risk bands.",
+            "why_now": "The current data do not match an RSI<30 mean-reversion entry; tactical reclaim and long-term thesis must remain separate.",
+            "limit_effect": "Historical indicators do not establish current order-flow direction or a validated trade edge."
+        })
+    elif chart.get("id") == "level_map":
+        supports = sorted(
+            [x for x in sr.get("supports", []) if isinstance(x, (int, float)) and isinstance(price, (int, float)) and x < price],
+            reverse=True,
+        )
+        resistances = sorted(
+            [x for x in sr.get("resistances", []) if isinstance(x, (int, float)) and isinstance(price, (int, float)) and x > price],
+        )
+        if supports and resistances:
+            read_result = f"Current price {price} is between nearest support {supports[0]} and resistance {resistances[0]}; price must reclaim the first resistance for a stronger tactical read."
+        else:
+            read_result = f"Current price {price}; a two-sided support/resistance bracket is not fully established by the current level set."
+        interpretation.update({
+            "what_observed": f"Current={price}; supports={supports[:3]}; resistances={resistances[:3]}.",
+            "read_result": read_result,
+            "why_now": "These are the actual conditional boundaries for the current entry/invalidation discussion.",
+            "limit_effect": "Without same-session flow, treat levels as candidate reaction zones rather than confirmed support/resistance."
+        })
+    elif chart.get("id") == "options_variance":
+        rows = options.get("expiry_features", [])
+        front = rows[0] if rows else {}
+        back = rows[-1] if rows else {}
+        ratio = (back.get("total_variance") / front.get("total_variance")) if front.get("total_variance") and back.get("total_variance") else None
+        interpretation.update({
+            "what_observed": f"Front={front.get('expiry')} variance={front.get('total_variance')}; back={back.get('expiry')} variance={back.get('total_variance')}; quote_rows={front.get('quote_rows')}.",
+            "read_result": f"Observed back/front total-variance ratio={ratio}; this is a historical/last-price proxy with no executable quote surface.",
+            "why_now": "The data can inform a volatility haircut, but do not provide directional option alpha.",
+            "limit_effect": "No bid/ask and stale/placeholder IV risk prevent executable pricing or probability claims."
+        })
+    elif chart.get("id") == "gamma_structure":
+        quality = gamma.get("data_quality", {})
+        status = gamma.get("gamma_status") or gamma.get("status")
+        interpretation.update({
+            "what_observed": f"Status={status}; eligible_rows={quality.get('eligible_rows')}; positive_OI_rows={quality.get('rows_with_positive_open_interest')}; iv_sources={quality.get('iv_source_counts')}.",
+            "read_result": f"Current result={status}; no validated upper/lower concentration is available because positive OI and defensible IV gates are not both satisfied.",
+            "why_now": "The correct current judgment is Gamma-wall suppression, not a zero-valued wall or dealer-flow inference.",
+            "limit_effect": "This packet cannot support signed GEX, Gamma flip or squeeze claims."
+        })
+    return interpretation
 
 
 def main() -> None:
@@ -129,6 +193,7 @@ def main() -> None:
     valuation = load(run / "valuation_snapshot.json")
     options = load(run / "options_features.json")
     gamma = load(run / "options_gamma_structure.json")
+    evidence_resolution = load(run / "evidence_resolution.json")
     content = load(Path(args.research_content), {}) if args.research_content else {}
 
     run_id = manifest.get("run_id") or evidence.get("run_id") or run.name
@@ -145,6 +210,7 @@ def main() -> None:
         "research_state": manifest.get("research_state") or content.get("research_state") or "NEEDS_EVIDENCE",
         "summary": content.get("summary", {}),
         "global_limitations": manifest.get("global_limitations", []) + content.get("global_limitations", []),
+        "evidence_resolution": evidence_resolution,
         "modules": {},
         "package_hints": {
             "evidence_packet": "evidence.json",
@@ -157,6 +223,10 @@ def main() -> None:
     content_modules = content.get("modules", {})
     for name in MODULE_TITLES:
         base = copy.deepcopy(manifest_modules.get(name, {}))
+        resolution_items = (evidence_resolution.get("requirements", []) if isinstance(evidence_resolution, dict) else []) if name == "fundamentals" else []
+        resolution_by_field = {item.get("field"): item for item in resolution_items if isinstance(item, dict)}
+        base_missing = base.get("missing_fields", [])
+        effective_missing = [field for field in base_missing if resolution_by_field.get(field, {}).get("status") != "FOUND"]
         module = {
             "title": MODULE_TITLES[name],
             "status": base.get("status", "not_run"),
@@ -165,7 +235,8 @@ def main() -> None:
             "freshness_status": base.get("freshness_status", "unknown"),
             "source_artifacts": base.get("source_artifacts", []),
             "evidence_ids": base.get("evidence_ids", []),
-            "missing_fields": base.get("missing_fields", []),
+            "missing_fields": effective_missing,
+            "evidence_resolution": base.get("evidence_resolution", []) or resolution_items,
             "metrics": {},
             "blocks": [],
             "judgments": [],
@@ -181,7 +252,11 @@ def main() -> None:
         elif name == "options":
             module["metrics"] = {"features": options, "gamma": gamma}
         module["charts"] = default_charts(name, run, stock, options, gamma)
+        for chart in module["charts"]:
+            chart["interpretation"] = _enrich_interpretation(chart, stock.get("technical", {}), options, gamma)
         module = merge(module, content_modules.get(name, {}))
+        for chart in module.get("charts", []):
+            chart["interpretation"] = _enrich_interpretation(chart, stock.get("technical", {}), options, gamma)
         report["modules"][name] = module
 
     out = run / args.out if not Path(args.out).is_absolute() else Path(args.out)

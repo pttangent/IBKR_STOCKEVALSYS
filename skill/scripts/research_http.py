@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import json
+import gzip
 import os
 import time
+import zlib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -38,7 +40,16 @@ def request_bytes(
         request = Request(url, headers=req_headers, method=method, data=body)
         try:
             with urlopen(request, timeout=timeout) as response:
-                return response.read()
+                raw = response.read()
+                encoding = str(response.headers.get("Content-Encoding", "")).lower()
+                if "gzip" in encoding or raw[:2] == b"\x1f\x8b":
+                    return gzip.decompress(raw)
+                if "deflate" in encoding:
+                    try:
+                        return zlib.decompress(raw)
+                    except zlib.error:
+                        return zlib.decompress(raw, -zlib.MAX_WBITS)
+                return raw
         except HTTPError as exc:
             last_error = exc
             # Retry only transient server/rate-limit errors. 4xx auth/shape errors should fail loudly.
@@ -115,4 +126,3 @@ def source_packet(
         "metadata": metadata or {},
         "data": data,
     }
-

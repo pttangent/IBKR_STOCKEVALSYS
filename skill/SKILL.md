@@ -19,6 +19,7 @@ Use this skill as a router plus reproducible calculation layer. Produce a resear
 8. Do not place orders. The IBKR adapter must use readonly connections and must not call order APIs.
 9. For every reader-facing report, apply [references/report-quality-and-html.md](references/report-quality-and-html.md): enforce the freshness barrier, primary-source priority, missing-not-zero semantics, canonical research-state/Kelly labels, the intraday evidence gate, and the OI/Gamma availability gate before rendering.
 10. Every report-producing workflow must support modular HTML. Full research produces a full HTML report; a narrow module request may produce only the requested module(s) as a standalone HTML document. Markdown and JSON remain audit/support artifacts and must not be discarded.
+11. Before publishing `missing_fields`, run [scripts/resolve_evidence_requirements.py](scripts/resolve_evidence_requirements.py) or the applicable provider-specific route. Distinguish `FOUND` from `NOT_AVAILABLE_AT_CUTOFF`, preserve attempts and source documents, and never call a source-backed field missing merely because it has not yet been copied into the run directory.
 
 ## Data routing
 
