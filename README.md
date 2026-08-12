@@ -1,16 +1,16 @@
 # IBKR_STOCKEVALSYS
 
-Evidence-backed single-stock research with IBKR/TWS as the primary market/options source and deterministic calculations before analyst interpretation.
+Evidence-backed single-stock research with IBKR/TWS as the primary market/options source, deterministic calculations before analyst interpretation, JSON-first report generation, and replayable evidence-chain packages.
 
-This repository contains the current `stock-eval-system` skill plus the project-local, read-only IBKR MCP used by the skill. The MCP is vendored here so the skill, provider contracts, news fixes, option-chain qualification, tests, runtime configuration, report-quality rules, and HTML output contract remain versioned together. It is not an autonomous trading agent.
+This repository contains the `stock-eval-system` skill plus the project-local, read-only IBKR MCP used by the skill. It is a research system, not an autonomous trading agent.
 
 ## Repository layout
 
 ```text
-skill/       Evidence-backed research skill, deterministic engine, provider adapters
-ibkr-mcp/    Project-local IBKR/TWS MCP server, tests, news and options tools
-docs/        Versioned documentation and compact HTML output examples
-.env.example Shared research and TWS configuration template (no secrets)
+skill/       research skill, deterministic engine, schemas, renderers and validators
+ibkr-mcp/    project-local IBKR/TWS MCP server and tests
+docs/        versioned documentation and current HTML report example
+.env.example shared research/TWS configuration template; no secrets
 ```
 
 ## Research architecture
@@ -31,113 +31,154 @@ IBKR market/options + SEC + IR + FRED/ALFRED + IBKR News + consensus
                               |
                       Research Arbiter
                               |
-                  scenarios / risk state
+                scenario / risk synthesis
                               |
-                    report manifest
-                      /       \
-                Markdown     HTML
+                    structured_report.json
+                       /              \
+                 Markdown            HTML
+                       \              /
+                    evidence-chain ZIP
 ```
 
-Reviewers are not allowed to browse independently. They may only cite the frozen evidence packet or emit a structured evidence request.
+`structured_report.json` is the canonical reader-facing semantic source. Markdown and HTML are sibling render targets; the HTML renderer must not parse Markdown to recover report meaning.
 
-## What was added
+## Core behaviors
 
-- SEC EDGAR adapter: ticker/CIK resolution, submissions, recent filings, XBRL company facts, canonical financial facts, Form 4 parsing.
-- FRED/ALFRED macro adapter with point-in-time `realtime_start=realtime_end=as_of` support.
-- Alpha Vantage research adapter for earnings estimates, earnings calendar, and optional call transcripts.
-- FINRA Reg SHO daily short-sale-volume adapter; values are explicitly labelled a flow proxy, never short interest.
-- Polymarket public-search adapter for optional market-implied event context.
-- Project-local IBKR MCP with qualified-underlying option-chain discovery, historical option bars, qualified historical news retrieval, explicit news time windows, and read-only research workflows.
-- IBKR News normalizer that consumes the MCP output and preserves provider, timestamp, article ID, and body availability.
-- Evidence-packet, claim-graph, review, arbitration, and report-manifest schemas plus cross-artifact validation.
-- Bull / Bear / Skeptic / Arbiter operating contracts in the skill references.
-- Structured decision/outcome SQLite memory with multiclass Brier calibration before any narrative reflection.
-- Modular rich HTML renderer with full-report and module-only output.
-- Report-quality gates distilled from real report/evidence audits: source freshness barriers, primary-source preference, `missing != 0`, exact Kelly labels, intraday-evidence gating, and replay-completeness disclosure.
-- Options Gamma structure that remains unsigned unless dealer/customer position sign is independently inferred; zero/untrusted OI cannot manufacture a Gamma Wall.
+- SEC/IR primary-source evidence for reported company facts when available.
+- FRED/ALFRED point-in-time macro support.
+- IBKR market/options/news acquisition with explicit entitlement, timestamp and fallback handling.
+- Massive/yfinance as capability-specific research complements, not silent replacements for IBKR evidence.
+- Evidence Packet, Claim Graph, Bull/Bear/Skeptic review, arbitration, decision state and checksums.
+- `missing != 0` throughout options, valuation and intraday evidence.
+- OI/Gamma quality gates: unsigned gross Gamma is not dealer GEX; zero/untrusted OI cannot create a fake wall.
+- Explicit intraday evidence gate: without same-session ORH/ORL/VWAP evidence, output a pre-open/next-session plan rather than fake “today confirmed” timing.
+- Kelly sizing that separates historical edge from current risk, then shows full / half / quarter variants and portfolio constraints.
+- Default position illustration uses a clearly labelled **$10,000 simulation account** unless a different account size is supplied to the deterministic engine.
+- Intraday, short-term and long-term scenarios are represented as separate branching trees rather than one flat bull/base/bear table.
+- Every major chart includes `WHAT / READ / WHY / LIMIT` interpretation.
 
 ## Quick start
 
 ```bash
 cp .env.example .env
 
-# Start the vendored MCP separately when IBKR/TWS research data are needed.
+# Start the vendored read-only MCP separately when IBKR/TWS data are needed.
 cd ibkr-mcp
 uv sync
 uv run python run_stdio.py
 cd ..
 
-# SEC: no API key; SEC_USER_AGENT is required.
+# Examples of evidence acquisition.
 python skill/scripts/fetch_sec_research.py --symbol NVDA --as-of 2026-08-07 --output runs/NVDA/sec.json
-
-# FRED: requires FRED_API_KEY.
 python skill/scripts/fetch_fred_macro.py --as-of 2026-08-07 --output runs/NVDA/macro.json
-
-# Consensus / transcript: requires ALPHA_VANTAGE_API_KEY.
-python skill/scripts/fetch_alpha_vantage_research.py --symbol NVDA --include-calendar --output runs/NVDA/consensus.json
-
-# Public sources; no key required.
 python skill/scripts/fetch_finra_short_volume.py --symbol NVDA --as-of 2026-08-07 --output runs/NVDA/finra.json
-python skill/scripts/fetch_polymarket_context.py --query "AI chip export restrictions" --output runs/NVDA/polymarket.json
 
-# Normalize an ibkr_get_news_articles result from the vendored MCP.
-python skill/scripts/normalize_ibkr_news.py --symbol NVDA --input raw_ibkr_news.json --output runs/NVDA/news.json
-
-# Freeze source packets into one evidence packet.
+# Freeze source packets.
 python skill/scripts/build_evidence_packet.py --symbol NVDA --as-of 2026-08-07 \
-  --source runs/NVDA/sec.json --source runs/NVDA/macro.json --source runs/NVDA/news.json \
-  --source runs/NVDA/consensus.json --output runs/NVDA/evidence.json
+  --source runs/NVDA/sec.json --source runs/NVDA/macro.json \
+  --output runs/NVDA/evidence.json
 ```
 
-## Rich HTML reports
+## Structured report pipeline
 
-The canonical renderer is `skill/scripts/render_html_report.py`. It can emit either the complete research report or one or more independent modules such as `technical`, `options`, or `risk`. Generated reports should keep data quality and missing-evidence warnings reader-visible rather than hiding them only in JSON audit artifacts.
+The production report flow is:
+
+```text
+raw / normalized evidence
+  -> deterministic artifacts (stock_eval.json, options_features.json, valuation snapshot, ...)
+  -> structured analyst synthesis / claim outputs
+  -> structured_report.json
+       -> Markdown renderer
+       -> HTML renderer
+  -> evidence-chain report package ZIP
+```
+
+Build the canonical structured report:
 
 ```bash
-# Full HTML
-python skill/scripts/render_html_report.py \
-  --report runs/NVDA/NVDA_complete_report.md \
+python skill/scripts/build_structured_report.py \
   --run-dir runs/NVDA \
-  --output runs/NVDA/NVDA_complete_report.html
-
-# Options-only HTML
-python skill/scripts/render_html_report.py \
-  --report runs/NVDA/NVDA_complete_report.md \
-  --run-dir runs/NVDA \
-  --output runs/NVDA/NVDA_options.html \
-  --modules options
+  --research-content runs/NVDA/research_content.json \
+  --out structured_report.json
 ```
 
-The report contract and distilled quality gates are documented in [`skill/references/report-quality-and-html.md`](skill/references/report-quality-and-html.md). The machine-readable output contract is [`skill/schemas/report-manifest.schema.json`](skill/schemas/report-manifest.schema.json), with validation through `skill/scripts/validate_report_manifest.py`.
+Render Markdown and HTML from the same JSON:
 
-### Versioned HTML examples
+```bash
+python skill/scripts/render_markdown_report.py \
+  --structured-report runs/NVDA/structured_report.json \
+  --output runs/NVDA/NVDA_complete_report.md
 
-Compact examples are kept under [`docs/examples/html/`](docs/examples/html/):
+python skill/scripts/render_html_report.py \
+  --structured-report runs/NVDA/structured_report.json \
+  --run-dir runs/NVDA \
+  --output runs/NVDA/NVDA_complete_report.html
+```
 
-- [`GEV_full_example.html`](docs/examples/html/GEV_full_example.html) — representative full report, including evidence-quality warnings and scenario/risk visualization.
-- [`XE_technical_example.html`](docs/examples/html/XE_technical_example.html) — technical-only output.
-- [`XE_options_example.html`](docs/examples/html/XE_options_example.html) — options-only output showing the required zero-OI Gamma suppression behavior.
+Build the portable evidence-chain package:
 
-The normal renderer embeds Plotly so generated reports are standalone/offline. The Git-versioned examples use the Plotly CDN only to avoid duplicating several megabytes of library JavaScript per example. They are frozen demonstration artifacts, not live market views.
+```bash
+python skill/scripts/build_evidence_chain_package.py \
+  --run-dir runs/NVDA \
+  --structured-report runs/NVDA/structured_report.json \
+  --output runs/NVDA/NVDA_evidence_chain_report.zip
+```
+
+A module-only reader view uses the same structured JSON and renderer with `--modules`.
+
+## Kelly / position guidance
+
+Kelly is presented as a chain rather than a single unexplained number:
+
+```text
+same-setup outcomes
+  -> p / b formula Kelly
+  -> empirical log-growth Kelly
+  -> conservative edge selection
+  -> current realized-volatility and option/event risk overlay
+  -> FULL / HALF / QUARTER
+  -> concentration / stop-risk / liquidity / mandate caps
+  -> final NAV %, dollars, shares and risk footprint
+```
+
+When evidence is usable but imperfect, the report should normally return a labelled `validated`, `conditional`, `exploratory`, `proxy`, or `risk-only` guide. It should abstain only when the available inputs are too incomplete to support a defensible scale.
+
+See [`skill/references/kelly-positioning-knowledge.md`](skill/references/kelly-positioning-knowledge.md) and [`skill/references/risk-positioning.md`](skill/references/risk-positioning.md).
+
+## Scenario trees
+
+A full report separates three decision horizons:
+
+- **Intraday:** premarket context → gap-up / near-flat / gap-down → acceptance / fade / reversal; nodes carry trigger, response, invalidation, action boundary and sizing tier where defensible.
+- **Short term:** days/weeks → structure repair / range digestion / breakdown.
+- **Long term:** quarters+ → thesis strengthen / mixed / weaken using business economics, capital efficiency, catalysts and valuation rather than intraday microstructure.
+
+See [`skill/references/scenario-tree-reasoning.md`](skill/references/scenario-tree-reasoning.md) and [`skill/references/tactical-timing.md`](skill/references/tactical-timing.md).
+
+## Current versioned HTML example
+
+The legacy GEV/XE examples have been retired. The current example is:
+
+- [`INTC_v2_full_example.html`](docs/examples/html/INTC_v2_full_example.html) — terminal-style v2 full-report mockup showing $10k Kelly full/half/quarter sizing, current-RV translation, binding caps, intraday branching tree, short-term tree, long-term tree and chart interpretation.
+- [`INTC_v2_structured_report.mock.json`](docs/examples/html/INTC_v2_structured_report.mock.json) — compact structured source behind the demonstration.
+- [`docs/examples/html/INDEX.html`](docs/examples/html/INDEX.html) — example entry page.
+
+The example is explicitly marked **DEMO / PARTIALLY MOCKED** so the complete v2 UI can be demonstrated even when a frozen real evidence bundle lacks some fields. It is not a live INTC conclusion and is not research evidence.
 
 ## Report correctness rules
 
 Reader-facing output must preserve these distinctions:
 
-- Evidence and calculations must be current enough for the report `as_of`; a post-earnings price snapshot cannot silently use pre-earnings fundamentals as if no newer filing exists.
-- Prefer primary SEC/company IR evidence for reported company results when available; secondary reporting is a complement, not the default replacement.
-- Missing option fields remain missing. Missing OI, volume, quote, Greeks, or one ATM straddle leg must not silently become zero.
-- OI is not dealer positioning. Gross Gamma is unsigned unless a defensible position-sign model exists.
-- All-zero or economically untrusted OI/Gamma must return an unavailable/suppressed Gamma concentration state rather than ranking fake zero-valued walls.
-- Kelly outputs must distinguish raw/full-sample, half, quarter/fractional, OOS-qualified, diagnostic cap, and actually applied Kelly.
-- A report without intraday VWAP/ORH/ORL/current-session evidence may present a next-session setup, but not claim current intraday confirmation.
-- Full-research replayability requires the underlying evidence packet / source artifacts, Claim Graph, review/arbitration artifacts, and relevant deterministic outputs; prose URLs alone are not a complete frozen research run.
+- Evidence and calculations must be current enough for the report `as_of`; post-event prices must not silently use stale pre-event fundamentals.
+- Primary SEC/company IR evidence takes priority for reported company facts when available.
+- Missing option fields remain missing. Missing OI, volume, quote, Greeks or one straddle leg must not silently become zero.
+- OI is not dealer positioning. Signed/dealer Gamma requires defensible sign evidence.
+- All-zero or economically untrusted OI/Gamma returns an unavailable/suppressed state rather than a fake wall.
+- Kelly labels must distinguish formula/empirical edge, full/half/quarter, qualification tier, risk overlays, diagnostic guidance and actually applied position constraints.
+- A report without current-session ORH/ORL/VWAP evidence may present an intraday decision tree as a plan, but may not claim the branch has already been confirmed.
+- Full-research replayability requires frozen evidence/source artifacts, claim/review/arbitration artifacts, deterministic outputs, `structured_report.json`, reader outputs, manifest and checksums.
 
-For provider setup and exact source roles, read `skill/references/provider-setup.md`. For the adversarial-review contract, read `skill/references/adversarial-review.md`. For the P3 calibration loop, read `skill/references/decision-memory.md`.
-
-The free-tier, entitlement, pacing, fallback, and especially options-data boundaries are documented in [`limitation.md`](limitation.md). Read it before interpreting a missing chain, empty bar response, IV estimate, or microstructure signal.
-
-The MCP-specific setup, tool inventory, and news/streaming notes are in `ibkr-mcp/README.md`, `ibkr-mcp/docs/SETUP.md`, `ibkr-mcp/docs/NEWS.md`, and `ibkr-mcp/docs/TOOLS.md`.
+For provider setup and exact source roles, read `skill/references/provider-setup.md`. For report quality, read `skill/references/report-quality-and-html.md`. For evidence-frozen review, read `skill/references/adversarial-review.md`. For options/data limitations, read [`limitation.md`](limitation.md).
 
 ## Safety boundary
 
