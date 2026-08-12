@@ -255,7 +255,17 @@ def main() -> None:
     operating_cf = fact(sec, "operating_cash_flow")
     cash = fact(sec, "cash_and_equivalents")
     filed = ((sec.get("data") or {}).get("canonical_financials") or {}).get("facts", {}).get("revenue", {}).get("filed")
-    market_id = f"market:IBKR:{symbol}:{as_of}"
+    market_candidates = [
+        (run / "market_massive_daily.json", "Massive_REST", "https://massive.com/docs/rest/stocks/aggregates"),
+        (run / "market_yfinance_daily.json", "yfinance", "https://ranaroussi.github.io/yfinance/reference/api/yfinance.download.html"),
+        (run / "market_ibkr_daily_full.json", "IBKR_TWS", "https://www.interactivebrokers.com/campus/ibkr-api-page/twsapi-doc/"),
+    ]
+    market_path, market_provider, market_url = next(
+        ((path, provider, url) for path, provider, url in market_candidates if path.exists()),
+        (run / "market_massive_daily.json", "Massive_REST", "https://massive.com/docs/rest/stocks/aggregates"),
+    )
+    market_packet = load(market_path)
+    market_id = f"market:{market_provider}:{symbol}:{as_of}"
     sec_id = f"sec:{symbol}:{as_of}"
     ir_id = f"ir:{symbol}:{as_of}"
     opt_id = f"options:yfinance:{symbol}:{as_of}"
@@ -277,9 +287,9 @@ def main() -> None:
         "data": {"symbol": symbol, "filed": filed, "facts": {k: fact(sec, k) for k in ["revenue", "gross_profit", "net_income", "operating_cash_flow", "cash_and_equivalents", "assets", "liabilities", "equity", "shares_outstanding"]}}
     }
     market_source = {
-        "schema_version": "1.0", "source_id": market_id, "provider": "IBKR_TWS", "source_type": "market_data",
-        "as_of": as_of, "available_at": as_of, "retrieved_at": load(run / "market_ibkr_daily_full.json").get("retrieved_at", as_of),
-        "reliability": "primary_market", "source_url": "https://www.interactivebrokers.com/campus/ibkr-api-page/twsapi-doc/",
+        "schema_version": "1.0", "source_id": market_id, "provider": market_provider, "source_type": "market_data",
+        "as_of": as_of, "available_at": as_of, "retrieved_at": market_packet.get("retrieved_at", as_of),
+        "reliability": "primary_market" if market_provider != "yfinance" else "secondary_unofficial", "source_url": market_url,
         "data": {"symbol": symbol, "last_price": price, "return_20d": technical.get("return_20d"), "return_90d": technical.get("return_90d"), "rsi14": momentum.get("rsi14"), "rv20": technical.get("realized_vol_20d_annualized"), "supports": supports[:4], "resistances": resistances[:4]}
     }
     options_source = {
@@ -311,10 +321,10 @@ def main() -> None:
             "valuation": {"blocks": [{"type": "paragraph", "title": "估值狀態", "text": f"目前沒有可核驗的時間點一致預期；已報告收入 {money(revenue, 0)}、淨利 {money(net_income, 0)}、營運現金流 {money(operating_cf, 0)} 是本次估值可使用的底層資料。"}, {"type": "paragraph", "title": "估值判斷", "text": f"下行情景：{judgment['valuation_down']} 基準情景：{judgment['valuation_base']} 上行情景：{judgment['valuation_up']}"}], "judgments": [{"label": "估值判斷", "conclusion": f"{judgment['valuation_base']}", "why": f"{judgment['valuation_down']} {judgment['valuation_up']}", "confidence": "low_to_medium", "evidence_ids": [sec_id, market_id]}]},
             "technical": {"blocks": [{"type": "paragraph", "title": "日線技術狀態", "text": f"{as_of} 可用的最新完整收盤為 {money(price)}；EMA20 {money(ma.get('ema20'))}、SMA50 {money(ma.get('sma50'))}、SMA200 {money(ma.get('sma200'))}；RSI14 {rsi}；20 日報酬 {current_return}；90 日報酬 {long_return}；20 日實現波動率 {rv}。"}], "judgments": [{"label": "技術判斷", "conclusion": f"{judgment['momentum_read']} {judgment['level_read']}", "why": f"{judgment['structure_read']} 同日 VWAP、ORH、ORL 未形成，所以不能把支撐/阻力寫成盤中已確認。", "confidence": "medium", "evidence_ids": [market_id]}]},
             "options": {"blocks": [{"type": "paragraph", "title": "期權資料質量", "text": f"yfinance 期權資料為研究鏈視圖；目前 Gamma 狀態為 {gamma_status}，正 OI 列為 {positive_oi if positive_oi is not None else '未知'}。{judgment['options_read']}"}, {"type": "paragraph", "title": "看什麼 / 讀到什麼 / 為什麼重要 / 限制", "text": f"看什麼：到期結構、ATM 跨式代理、IV、OI 與 Gamma 質量。讀到什麼：{judgment['options_read']} 為什麼重要：期權資料最多改變波動折扣與事件風險，不能代替股票本身的方向證據。限制：缺少即時可執行報價、完整 OI 或 dealer sign 時，不畫 Gamma wall、不推斷交易商方向。"}], "judgments": [{"label": "期權判斷", "conclusion": judgment["options_read"], "why": f"本次資料來源為 yfinance 研究鏈；Gamma 狀態 {gamma_status}，正 OI 列 {positive_oi if positive_oi is not None else '未知'}。", "confidence": "low", "evidence_ids": [opt_id]}]},
-            "governance": {"blocks": [{"type": "paragraph", "title": "證據治理", "text": "研究包把 SEC FACT、IBKR 市場資料、yfinance 期權代理和模型輸出分開。缺失欄位保留為缺失，不把缺失轉成零，也不把 gross Gamma 寫成 signed dealer GEX。"}]},
+            "governance": {"blocks": [{"type": "paragraph", "title": "證據治理", "text": f"研究包把 SEC FACT、{market_provider} 市場資料、yfinance 期權代理和模型輸出分開。缺失欄位保留為缺失，不把缺失轉成零，也不把 gross Gamma 寫成 signed dealer GEX。"}]},
             "risk": {"judgments": [{"label": "倉位判斷", "conclusion": f"{judgment['volatility_read']}", "why": f"{judgment['momentum_read']} 目前只能把 Kelly 當作研究級比例，並受集中度、止損與當前 RV 約束。", "confidence": "low", "evidence_ids": [market_id]}]},
             "scenarios": {"blocks": [{"type": "paragraph", "title": "當前情景判斷", "text": f"日內先驗證 {judgment['level_read']}；短期分歧在於 {judgment['momentum_read']}；長期分歧在於 {judgment['fundamental_read']}。因此本次情景樹把價格事件、技術確認和基本面更新分開，不用單一分支替代完整研究結論。"}], "long_term_context": {"watch": [f"{symbol} 下一期收入與毛利是否延續目前水平", f"營運現金流 {money(operating_cf, 0)} 是否繼續覆蓋盈利與資本需求", "資本強度、稀釋與競爭地位", f"現價 {money(price)} 對已報告盈利的要求"], "strengthen_trigger": f"{symbol} 下一期收入、淨利 {money(net_income, 0)} 與營運現金流 {money(operating_cf, 0)} 同步改善，且價格能守住 {money(supports[0]) if supports else '主要支撐'}。", "mixed_trigger": f"收入延續但盈利或現金流沒有同步改善；價格仍在 {money(supports[0]) if supports else '支撐'} 與 {money(resistances[0]) if resistances else '阻力'} 之間反覆。", "weaken_trigger": f"營運現金流低於目前 {money(operating_cf, 0)} 的可比水平，或價格跌破 {money(supports[0]) if supports else '主要支撐'} 後反抽失敗。"}},
-            "evidence": {"blocks": [{"type": "paragraph", "title": "證據清單", "text": f"SEC：{filed or '最新申報'}；IBKR 日線、1 分鐘與 10 秒資料；yfinance 期權鏈；所有原始資料、衍生結果和校驗資訊會收入證據鏈報告包。"}]}
+            "evidence": {"blocks": [{"type": "paragraph", "title": "證據清單", "text": f"SEC：{filed or '最新申報'}；{market_provider} 日線、yfinance 1 分鐘資料與 yfinance 期權鏈；所有原始資料、衍生結果和校驗資訊會收入證據鏈報告包。"}]}
         }
     }
     (run / "research_content.json").write_text(json.dumps(research, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -335,7 +345,8 @@ def main() -> None:
     manifest["modules"]["overview"]["source_artifacts"] = ["sec_research.json", "stock_eval.json"]
     manifest["modules"]["fundamentals"]["source_artifacts"] = ["sec_research.json", "ir_primary_sources.json"]
     manifest["modules"]["valuation"].update({"status": "conditional", "confidence": "low_to_medium", "freshness_status": "conditional_no_pit_consensus", "source_artifacts": ["sec_research.json", "valuation_snapshot.json"], "missing_fields": ["point_in_time_consensus"]})
-    manifest["modules"]["technical"].update({"module_as_of": as_of, "source_artifacts": ["market_ibkr_daily_full.json", "stock_eval.json", "intraday_features.json"], "missing_fields": ["same_session_orh_orl_vwap"]})
+    technical_market_artifact = market_path.name
+    manifest["modules"]["technical"].update({"module_as_of": as_of, "source_artifacts": [technical_market_artifact, "stock_eval.json", "intraday_features.json"], "missing_fields": ["same_session_orh_orl_vwap"]})
     manifest["modules"]["options"].update({"status": "partial", "confidence": "low", "freshness_status": "historical_proxy_only", "source_artifacts": ["options_yfinance_full.json", "options_features.json", "options_gamma_structure.json"], "missing_fields": missing_options})
     manifest["modules"]["risk"].update({"status": "conditional", "confidence": "low_to_medium", "freshness_status": "diagnostic_proxy", "source_artifacts": ["stock_eval.json", "intraday_features.json"], "missing_fields": ["validated_same_setup_oos_kelly", "same_session_live_packet"]})
     manifest["modules"]["scenarios"].update({"confidence": "conditional", "freshness_status": "conditional_tree", "source_artifacts": ["stock_eval.json", "intraday_features.json", "research_content.json"]})

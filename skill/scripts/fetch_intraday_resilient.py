@@ -134,7 +134,7 @@ def optional_yfinance(symbol: str, end_date_time: str, days: int = 30) -> tuple[
         return {"status": "failed", "bars": 0, "chunks": chunks, "reason": "no yfinance intraday bars returned"}, []
     partial = any(chunk.get("status") != "ok" for chunk in chunks)
     return {"status": "partial" if partial else "ok", "bars": len(bars), "chunks": chunks,
-            "note": "Yahoo/yfinance data; 7-day request windows, no IBKR trade count"}, bars
+            "note": "Yahoo/yfinance data; 7-day request windows; no verified time-and-sales count"}, bars
 
 
 def main():

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Summarize IBKR intraday bars without overstating them as tick data."""
+"""Summarize provider intraday bars without overstating them as tick data."""
 from __future__ import annotations
 
 import argparse
@@ -108,6 +108,14 @@ def summarize(packet):
 
     max_row = max(rows, key=lambda x: x["count"] if x["count"] is not None else -1)
     volatility = math.sqrt(sum(x * x for x in returns)) if returns else None
+    provider = str(packet.get("provider") or "unknown")
+    count_caveat = (
+        "yfinance 目前未提供可驗證的逐筆成交數；本包的 bar count 不應解讀為逐筆成交數"
+        if provider == "yfinance" else
+        "Massive 聚合 bar 的 count 不是原始逐筆成交紀錄"
+        if provider == "massive-rest" else
+        "IBKR bar count 是每根聚合 bar 的數量，不是原始逐筆成交紀錄"
+    )
     return {
         "status": "ok", "provider": packet.get("provider"), "symbol": packet.get("symbol"),
         "request": packet.get("request", {}), "coverage": {"start": rows[0]["date"], "end": rows[-1]["date"],
@@ -132,7 +140,7 @@ def summarize(packet):
                            "middle_volume_mean": statistics.mean(middle_volume) if middle_volume else None,
                            "edge_definition": "first and last one-third, capped at 180 bars per edge per session"},
         "sessions_detail": session_summaries,
-        "caveats": ["IBKR bar count is an aggregate count per bar, not raw time-and-sales executions",
+        "caveats": [count_caveat,
                     "price-change signed volume is a heuristic proxy and does not identify aggressor side",
                     "zero-volume bars and partial sessions are retained and disclosed",
                     "use historical ticks or a direct feed for exact order-flow reconstruction"],
