@@ -18,8 +18,30 @@
     "technical": {"blocks": [], "judgments": [], "knowledge_notes": []},
     "options": {"blocks": [], "judgments": [], "knowledge_notes": []},
     "governance": {"blocks": [], "judgments": [], "knowledge_notes": []},
-    "risk": {"blocks": [], "judgments": [], "knowledge_notes": []},
-    "scenarios": {"blocks": [], "judgments": [], "knowledge_notes": []},
+    "risk": {
+      "blocks": [],
+      "judgments": [],
+      "knowledge_notes": [],
+      "position_inputs": {
+        "portfolio_value": null,
+        "stop": null,
+        "risk_budget_pct": 0.005,
+        "concentration_cap_pct": 0.05,
+        "current_setup_id": null,
+        "setup_match_status": "unknown"
+      }
+    },
+    "scenarios": {
+      "blocks": [],
+      "judgments": [],
+      "knowledge_notes": [],
+      "long_term_context": {
+        "watch": ["Company-specific operating KPI", "Margins/cash flow", "Capital intensity/dilution", "Valuation support"],
+        "strengthen_trigger": "Replace with the company-specific evidence that would strengthen the thesis.",
+        "mixed_trigger": "Replace with the company-specific mixed-execution path.",
+        "weaken_trigger": "Replace with the company-specific thesis-weakening/invalidation path."
+      }
+    },
     "evidence": {"blocks": [], "judgments": [], "knowledge_notes": []}
   }
 }
