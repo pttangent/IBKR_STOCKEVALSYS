@@ -1,0 +1,25 @@
+{
+  "title": "SYMBOL STOCK EVALUATION / 結構化證據鏈報告",
+  "summary": {
+    "headline": "One-sentence research posture.",
+    "thesis": "What is already supported, what remains unproven, and the primary causal path.",
+    "variant_perception": "What the market may be mispricing and why.",
+    "primary_horizon": "6–18 months",
+    "key_risks": [],
+    "next_evidence": []
+  },
+  "modules": {
+    "fundamentals": {
+      "blocks": [{"type": "paragraph", "title": "OPERATING BRIDGE", "text": "Structured narrative, not Markdown headings."}],
+      "judgments": [{"label": "CORE ECONOMICS", "conclusion": "", "why": "", "confidence": "medium", "evidence_ids": [], "invalidation": []}],
+      "knowledge_notes": [{"title": "Concept to explain", "explanation": "Transferable analytical knowledge.", "applied_to_current_report": "Why it matters here."}]
+    },
+    "valuation": {"blocks": [], "judgments": [], "knowledge_notes": []},
+    "technical": {"blocks": [], "judgments": [], "knowledge_notes": []},
+    "options": {"blocks": [], "judgments": [], "knowledge_notes": []},
+    "governance": {"blocks": [], "judgments": [], "knowledge_notes": []},
+    "risk": {"blocks": [], "judgments": [], "knowledge_notes": []},
+    "scenarios": {"blocks": [], "judgments": [], "knowledge_notes": []},
+    "evidence": {"blocks": [], "judgments": [], "knowledge_notes": []}
+  }
+}
