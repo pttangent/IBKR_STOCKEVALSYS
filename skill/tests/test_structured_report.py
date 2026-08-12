@@ -39,9 +39,7 @@ class StructuredReportTests(unittest.TestCase):
                     "source_artifacts": ["stock_eval.json"],
                     "missing_fields": [],
                     "charts": [{
-                        "id": "state",
-                        "kind": "technical_snapshot",
-                        "title": "STATE",
+                        "id": "state", "kind": "technical_snapshot", "title": "STATE",
                         "interpretation": {"what": "x", "what_observed": "x1", "read": "y", "read_result": "y1", "why": "z", "why_now": "z1", "limit": "q", "limit_effect": "q1"},
                     }],
                 }
@@ -88,22 +86,73 @@ class StructuredReportTests(unittest.TestCase):
             self.assertIn("$10k", interpretation["what"])
             self.assertIn("quarter", interpretation["read_result"])
 
-    def test_scenario_tree_has_intraday_short_and_long_horizons(self):
-        technical = {
+    def _technical(self):
+        return {
             "last_price": 100.0,
-            "ma": {"ema20": 102.0, "sma50": 98.0, "sma200": 80.0},
-            "momentum": {"atr14": 6.0},
+            "ma": {"ema20": 99.2, "sma50": 109.8, "sma200": 80.0},
+            "momentum": {"atr14": 6.0, "bollinger": {"upper": 111.0, "lower": 89.0}},
             "realized_vol_20d_annualized": 0.80,
             "support_resistance": {"supports": [95.0, 90.0], "resistances": [105.0, 110.0]},
+            "close_weighted_volume_nodes": [{"mid": 96.0, "volume": 1000}, {"mid": 104.0, "volume": 900}],
         }
-        trees = build_scenario_trees(technical, {"prior_close": 99.0}, {})
+
+    def test_scenario_tree_is_compositional_not_gap_template(self):
+        trees = build_scenario_trees(self._technical(), {"prior_close": 99.0}, {})
         self.assertEqual([tree["horizon"] for tree in trees], ["intraday", "short_term", "long_term"])
         intraday = trees[0]
         self.assertEqual(intraday["evidence_status"], "next_session_conditional")
-        self.assertEqual([child["id"] for child in intraday["root"]["children"]], ["gap_up", "near_flat", "gap_down"])
-        gap_up_children = [child["id"] for child in intraday["root"]["children"][0]["children"]]
-        self.assertEqual(gap_up_children, ["gap_up_accept", "gap_up_fade"])
-        self.assertEqual(intraday["root"]["children"][0]["children"][0]["sizing_tier"], "quarter")
+        self.assertEqual(intraday["construction_policy"], "compositional_event_tree")
+        root_ids = [child["id"] for child in intraday["root"]["children"]]
+        self.assertEqual(root_ids, ["upward_impulse", "compression", "downward_impulse"])
+        self.assertNotIn("gap_up", root_ids)
+        self.assertNotIn("PRIOR_CLOSE", {a["id"] for a in intraday["anchor_book"]})
+
+    def test_intraday_tree_contains_break_retest_hold_and_false_break_paths(self):
+        intraday = build_scenario_trees(self._technical(), {}, {})[0]
+        upward = intraday["root"]["children"][0]
+        breakout = upward["children"][0]
+        ids = [child["id"] for child in breakout["children"]]
+        self.assertEqual(ids, ["up_break_retest_hold", "up_break_retest_fail"])
+        hold = breakout["children"][0]
+        self.assertIn("回踩不破", hold["label"])
+        self.assertEqual(hold["sizing_tier"], "quarter")
+        self.assertTrue(hold["price_anchors"])
+        self.assertTrue(all(item.get("source") and item.get("method") for item in hold["price_anchors"]))
+
+    def test_same_session_tree_uses_real_intraday_anchors_when_present(self):
+        intraday_context = {
+            "same_session": True,
+            "source_artifact": "intraday_1m.json",
+            "current_price": 101.2,
+            "orh": 102.4,
+            "orl": 98.8,
+            "vwap": 100.6,
+        }
+        tree = build_scenario_trees(self._technical(), {}, intraday_context)[0]
+        anchors = {item["id"]: item for item in tree["anchor_book"]}
+        self.assertEqual(tree["evidence_status"], "same_session")
+        self.assertAlmostEqual(anchors["VWAP"]["value"], 100.6)
+        self.assertEqual(anchors["VWAP"]["role"], "intraday")
+        self.assertIn("intraday_1m.json", anchors["VWAP"]["source"])
+        self.assertAlmostEqual(anchors["ORH"]["value"], 102.4)
+        self.assertAlmostEqual(anchors["ORL"]["value"], 98.8)
+
+    def test_validator_rejects_scenario_anchor_without_provenance(self):
+        tree = build_scenario_trees(self._technical(), {}, {})[0]
+        bad = tree["root"]["price_anchors"][0]
+        bad.pop("source")
+        report = {
+            "schema_version": "2.1", "run_id": "TEST", "symbol": "TEST", "as_of": "2026-08-12",
+            "research_state": "READY_CONDITIONAL",
+            "modules": {
+                "scenarios": {
+                    "title": "SCENARIOS", "status": "complete", "freshness_status": "current",
+                    "source_artifacts": ["stock_eval.json"], "missing_fields": [], "scenario_trees": [tree],
+                }
+            },
+        }
+        errors = VALIDATOR.validate(report)
+        self.assertTrue(any("price_anchors" in error and "source" in error for error in errors))
 
 
 if __name__ == "__main__":
