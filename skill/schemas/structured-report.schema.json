@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "structured-report.schema.json",
+  "title": "StockEval canonical structured report",
+  "type": "object",
+  "required": ["schema_version", "run_id", "symbol", "as_of", "research_state", "modules"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "run_id": {"type": "string", "minLength": 1},
+    "symbol": {"type": "string", "minLength": 1},
+    "title": {"type": "string"},
+    "as_of": {"type": "string", "minLength": 10},
+    "generated_at": {"type": ["string", "null"]},
+    "evidence_cutoff": {"type": ["string", "null"]},
+    "price_timestamp": {"type": ["string", "null"]},
+    "research_state": {"enum": ["RESEARCH_READY", "READY_CONDITIONAL", "WAIT_CONFIRMATION", "NEEDS_EVIDENCE", "RISK_BLOCKED", "MONITOR_ONLY", "THESIS_INVALIDATED"]},
+    "summary": {"$ref": "#/$defs/summary"},
+    "global_limitations": {"type": "array", "items": {"type": "string"}},
+    "modules": {"type": "object", "additionalProperties": {"$ref": "#/$defs/module"}},
+    "package_hints": {"type": "object"}
+  },
+  "$defs": {
+    "summary": {
+      "type": "object",
+      "properties": {
+        "headline": {"type": ["string", "null"]},
+        "thesis": {"type": ["string", "null"]},
+        "variant_perception": {"type": ["string", "null"]},
+        "primary_horizon": {"type": ["string", "null"]},
+        "key_risks": {"type": "array", "items": {"type": "string"}},
+        "next_evidence": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": true
+    },
+    "module": {
+      "type": "object",
+      "required": ["title", "status", "freshness_status", "source_artifacts", "missing_fields"],
+      "properties": {
+        "title": {"type": "string"},
+        "status": {"type": "string"},
+        "confidence": {"type": ["string", "number", "null"]},
+        "module_as_of": {"type": ["string", "null"]},
+        "freshness_status": {"type": "string"},
+        "source_artifacts": {"type": "array", "items": {"type": "string"}},
+        "evidence_ids": {"type": "array", "items": {"type": "string"}},
+        "missing_fields": {"type": "array", "items": {"type": "string"}},
+        "evidence_resolution": {"type": "array", "items": {"type": "object", "required": ["field", "status", "attempts"], "properties": {"field": {"type": "string"}, "status": {"type": "string"}, "attempts": {"type": "array"}, "next_action": {"type": "string"}}, "additionalProperties": true}},
+        "metrics": {"type": "object"},
+        "blocks": {"type": "array", "items": {"$ref": "#/$defs/block"}},
+        "judgments": {"type": "array", "items": {"$ref": "#/$defs/judgment"}},
+        "knowledge_notes": {"type": "array", "items": {"$ref": "#/$defs/knowledge_note"}},
+        "charts": {"type": "array", "items": {"$ref": "#/$defs/chart"}},
+        "tables": {"type": "array", "items": {"type": "object"}},
+        "scenario_trees": {"type": "array", "items": {"$ref": "#/$defs/scenario_tree"}},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": true
+    },
+    "block": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {"enum": ["paragraph", "markdown", "bullets", "callout", "metric_grid", "divider"]},
+        "title": {"type": ["string", "null"]},
+        "text": {"type": ["string", "null"]},
+        "items": {"type": "array"},
+        "tone": {"type": ["string", "null"]}
+      },
+      "additionalProperties": true
+    },
+    "judgment": {
+      "type": "object",
+      "required": ["label", "conclusion"],
+      "properties": {
+        "label": {"type": "string"},
+        "conclusion": {"type": "string"},
+        "why": {"type": ["string", "null"]},
+        "confidence": {"type": ["string", "number", "null"]},
+        "evidence_ids": {"type": "array", "items": {"type": "string"}},
+        "invalidation": {"type": "array", "items": {"type": "string"}},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": true
+    },
+    "knowledge_note": {
+      "type": "object",
+      "required": ["title", "explanation"],
+      "properties": {
+        "title": {"type": "string"},
+        "explanation": {"type": "string"},
+        "applied_to_current_report": {"type": ["string", "null"]},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": true
+    },
+    "chart": {
+      "type": "object",
+      "required": ["id", "kind", "title", "interpretation"],
+      "properties": {
+        "id": {"type": "string"},
+        "kind": {"type": "string"},
+        "title": {"type": "string"},
+        "subtitle": {"type": ["string", "null"]},
+        "source_artifact": {"type": ["string", "null"]},
+        "data": {},
+        "config": {"type": "object"},
+        "interpretation": {
+          "type": "object",
+          "required": ["what", "what_observed", "read", "read_result", "why", "why_now", "limit", "limit_effect"],
+          "properties": {
+            "what": {"type": "string"},
+            "what_observed": {"type": "string"},
+            "read": {"type": "string"},
+            "read_result": {"type": "string"},
+            "why": {"type": "string"},
+            "why_now": {"type": "string"},
+            "limit": {"type": "string"},
+            "limit_effect": {"type": "string"}
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "scenario_tree": {
+      "type": "object",
+      "required": ["id", "horizon", "title", "evidence_status", "root"],
+      "properties": {
+        "id": {"type": "string"},
+        "horizon": {"enum": ["intraday", "short_term", "long_term"]},
+        "title": {"type": "string"},
+        "evidence_status": {"type": "string"},
+        "opening_range_minutes": {"type": ["integer", "null"]},
+        "root": {"$ref": "#/$defs/scenario_node"}
+      },
+      "additionalProperties": true
+    },
+    "scenario_node": {
+      "type": "object",
+      "required": ["id", "label", "trigger", "watch", "interpretation", "response", "invalidation", "action_boundary", "sizing_tier", "price_reference", "children"],
+      "properties": {
+        "id": {"type": "string"},
+        "label": {"type": "string"},
+        "trigger": {"type": "string"},
+        "watch": {"type": "array", "items": {"type": "string"}},
+        "interpretation": {"type": "string"},
+        "response": {"type": "string"},
+        "invalidation": {"type": "string"},
+        "action_boundary": {"type": "string"},
+        "sizing_tier": {"enum": ["none", "quarter", "half", "full_diagnostic", "risk_only"]},
+        "price_reference": {"type": "object"},
+        "probability": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "children": {"type": "array", "items": {"$ref": "#/$defs/scenario_node"}}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

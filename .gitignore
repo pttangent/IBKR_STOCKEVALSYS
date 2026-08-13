@@ -1,0 +1,24 @@
+# secrets / local config
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Generated research packets and large local data
+/data/
+/outputs/
+/runs/
+/cache/
+*.log
+
+# Embedded repositories / editor state
+**/.git/
+.vscode/
+.idea/
+.DS_Store

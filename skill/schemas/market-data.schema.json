@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["provider", "symbol", "retrieved_at", "bars"],
+  "properties": {
+    "provider": {"type": "string"},
+    "symbol": {"type": "string", "pattern": "^[A-Z.\\-]+$"},
+    "retrieved_at": {"type": "string"},
+    "bars": {"type": "array", "items": {"type": "object", "required": ["date", "open", "high", "low", "close", "volume"], "properties": {"date": {"type": ["string", "number"]}, "open": {"type": "number"}, "high": {"type": "number"}, "low": {"type": "number"}, "close": {"type": "number"}, "volume": {"type": "number"}, "count": {"type": ["number", "null"]}, "wap": {"type": ["number", "null"]}}}},
+    "options": {"type": "array"},
+    "contracts": {"type": "array"}
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "report-manifest.schema.json",
+  "title": "StockEval modular report manifest",
+  "type": "object",
+  "required": ["schema_version", "symbol", "as_of", "research_state", "modules"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "run_id": {"type": ["string", "null"]},
+    "symbol": {"type": "string", "minLength": 1},
+    "as_of": {"type": "string", "minLength": 10},
+    "evidence_cutoff": {"type": ["string", "null"]},
+    "price_timestamp": {"type": ["string", "null"]},
+    "research_state": {
+      "enum": ["RESEARCH_READY", "READY_CONDITIONAL", "WAIT_CONFIRMATION", "NEEDS_EVIDENCE", "RISK_BLOCKED", "MONITOR_ONLY", "THESIS_INVALIDATED"]
+    },
+    "global_limitations": {"type": "array", "items": {"type": "string"}},
+    "modules": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/module"}
+    }
+  },
+  "$defs": {
+    "module": {
+      "type": "object",
+      "required": ["status", "freshness_status", "source_artifacts", "missing_fields"],
+      "properties": {
+        "status": {"type": "string"},
+        "confidence": {"type": ["string", "number", "null"]},
+        "module_as_of": {"type": ["string", "null"]},
+        "latest_material_event_at": {"type": ["string", "null"]},
+        "latest_primary_evidence_at": {"type": ["string", "null"]},
+        "freshness_status": {
+          "enum": ["current", "stale_after_material_event", "stale", "unknown", "not_applicable"]
+        },
+        "source_artifacts": {"type": "array", "items": {"type": "string"}},
+        "evidence_ids": {"type": "array", "items": {"type": "string"}},
+        "missing_fields": {"type": "array", "items": {"type": "string"}},
+        "metrics": {"type": "object"},
+        "narrative_markdown": {"type": ["string", "null"]},
+        "visualizations": {"type": "array", "items": {"type": "object"}},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

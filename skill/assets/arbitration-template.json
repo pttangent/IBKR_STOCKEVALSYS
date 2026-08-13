@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "evidence_freeze_hash": "{{EVIDENCE_FREEZE_HASH}}",
+  "thesis_state": "NEEDS_EVIDENCE",
+  "scenarios": {
+    "bear": {"probability": null, "reason": ""},
+    "base": {"probability": null, "reason": ""},
+    "bull": {"probability": null, "reason": ""},
+    "unknown": {"probability": null, "reason": ""}
+  },
+  "claim_adjustments": [],
+  "unresolved_evidence": []
+}
+

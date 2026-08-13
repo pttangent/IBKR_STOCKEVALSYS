@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["symbol", "as_of", "research_posture"],
+  "properties": {
+    "symbol": {"type": "string"},
+    "as_of": {"type": "string"},
+    "data": {"type": "object"},
+    "technical": {"type": "object"},
+    "options": {"type": "object"},
+    "backtest": {"type": "object"},
+    "position": {"type": "object"},
+    "research_posture": {"type": "object", "required": ["underwriting_status", "recommendation"]}
+  }
+}

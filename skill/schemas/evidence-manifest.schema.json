@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Stock Evaluation Evidence Manifest",
+  "type": "object",
+  "required": ["run_id", "symbol", "as_of", "evidence_cutoff", "records"],
+  "properties": {
+    "run_id": {"type": "string", "minLength": 1},
+    "symbol": {"type": "string", "minLength": 1},
+    "as_of": {"type": "string", "minLength": 1},
+    "filing_cutoff": {"type": ["string", "null"]},
+    "evidence_cutoff": {"type": "string", "minLength": 1},
+    "provider_status": {"type": "object"},
+    "missing_evidence": {"type": "array", "items": {"type": "string"}},
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["evidence_id", "source", "evidence_role", "retrieved_at", "pit_status"],
+        "properties": {
+          "evidence_id": {"type": "string", "minLength": 1},
+          "source": {"type": "string", "minLength": 1},
+          "provider": {"type": ["string", "null"]},
+          "endpoint": {"type": ["string", "null"]},
+          "source_url": {"type": ["string", "null"]},
+          "raw_identifier": {"type": ["string", "null"]},
+          "published_at": {"type": ["string", "null"]},
+          "observation_date": {"type": ["string", "null"]},
+          "vintage_date": {"type": ["string", "null"]},
+          "retrieved_at": {"type": "string"},
+          "received_at": {"type": ["string", "null"]},
+          "evidence_role": {
+            "enum": ["primary_fact", "company_claim", "street_estimate", "market_implied_expectation", "short_sale_flow_proxy", "retail_attention_proxy", "secondary_context", "market_data", "model_input"]
+          },
+          "evidence_grade": {"type": ["string", "null"]},
+          "pit_status": {"enum": ["pit_safe", "pit_limited", "pit_unavailable", "current_only"]},
+          "stale": {"type": ["boolean", "null"]},
+          "status": {"type": ["string", "null"]},
+          "error": {"type": ["string", "null"]}
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

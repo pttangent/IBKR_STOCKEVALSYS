@@ -1,0 +1,165 @@
+{
+  "schema_version": "2.2-demo",
+  "run_id": "INTC_FULL_DEMO_2026-08-12",
+  "symbol": "INTC",
+  "title": "INTC 完整證據鏈研究報告（示例）",
+  "as_of": "2026-08-12",
+  "evidence_cutoff": "2026-08-12T16:00:00-04:00",
+  "price_timestamp": "2026-08-11 regular-session close reference",
+  "research_state": "READY_CONDITIONAL",
+  "demo": true,
+  "partially_mocked": true,
+  "summary": {
+    "headline": "核心營運改善與資本強度仍需分開評估；高 RV 下倉位應由 current-risk overlay 和結構價位共同約束。",
+    "thesis": "長期價值取決於產品/Foundry 經濟性、自由現金流與資本效率能否改善；短期價格仍處於高波動修復區。",
+    "variant_perception": "headline GAAP loss 與核心經營表現不可直接等同；同時不能忽略 Foundry 虧損與高資本支出。",
+    "primary_horizon": "6–18 個月，另附日內與數週情景樹"
+  },
+  "modules": {
+    "overview": {
+      "title": "研究結論",
+      "status": "complete",
+      "freshness_status": "demo_frozen",
+      "source_artifacts": ["evidence.json", "stock_eval.json", "valuation_snapshot.json"],
+      "missing_fields": [],
+      "blocks": [
+        {"type": "paragraph", "title": "核心姿態", "text": "這是一份完整報告示例，不是即時 INTC 建議。數字採用前一輪 frozen evidence 中可重現值，缺口處明確使用 mock。"}
+      ]
+    },
+    "fundamentals": {
+      "title": "基本面",
+      "status": "complete_demo",
+      "freshness_status": "frozen",
+      "source_artifacts": ["sec_q2_2026.json", "ir_prepared_remarks.pdf"],
+      "missing_fields": [],
+      "metrics": {
+        "gaap_net_loss_usd_b": -11.0,
+        "non_gaap_net_income_usd_b": 2.197,
+        "foundry_revenue_usd_b": 5.765,
+        "foundry_operating_loss_usd_b": -2.089,
+        "foundry_operating_margin": -0.3624,
+        "adjusted_fcf_usd_b": -8.419
+      }
+    },
+    "valuation": {
+      "title": "估值",
+      "status": "complete_demo",
+      "freshness_status": "frozen",
+      "source_artifacts": ["valuation_snapshot.json", "offering_evidence.json"],
+      "missing_fields": [],
+      "metrics": {
+        "reference_price": 97.71,
+        "market_cap_usd_b": 492.849,
+        "simple_net_debt_usd_b": 18.822,
+        "enterprise_value_usd_b": 511.671,
+        "post_offering_ev_usd_b": 512.444
+      }
+    },
+    "technical": {
+      "title": "技術結構",
+      "status": "complete",
+      "freshness_status": "latest_completed_session",
+      "source_artifacts": ["stock_eval.json", "market_ibkr_daily_full.json"],
+      "missing_fields": ["same_session_vwap", "same_session_orh", "same_session_orl"],
+      "metrics": {
+        "last_price": 97.71,
+        "realized_vol_20d_annualized": 0.8083568,
+        "momentum": {"rsi14": 46.7183, "atr14": 7.54462},
+        "ma": {"ema20": 99.2026, "sma50": 109.8406, "sma200": 69.1845},
+        "support_resistance": {
+          "supports": [94.195, 89.59, 85.62],
+          "resistances": [103.66, 105.5596, 106.85]
+        }
+      }
+    },
+    "options": {
+      "title": "期權與波動",
+      "status": "partial",
+      "freshness_status": "historical/model_proxy",
+      "source_artifacts": ["options_features.json", "options_gamma_structure.json"],
+      "missing_fields": ["executable_bid_ask_surface", "trusted_positive_oi_for_gamma"],
+      "metrics": {
+        "atm_iv_model": 0.918066,
+        "rv20": 0.808357,
+        "iv_rv_ratio": 1.1357,
+        "gamma_status": "UNAVAILABLE_ZERO_OR_UNTRUSTED_OI"
+      }
+    },
+    "risk": {
+      "title": "風險與倉位",
+      "status": "conditional",
+      "freshness_status": "derived_from_frozen_inputs",
+      "source_artifacts": ["stock_eval.json"],
+      "missing_fields": [],
+      "metrics": {
+        "kelly": {
+          "sample_confidence": {"tier": "conditional_tactical"},
+          "setup_match": {"status": "proxy_mismatch"},
+          "out_of_sample_formula": {
+            "p_win_rate": 0.5,
+            "b_avg_win_over_avg_loss": 1.57949,
+            "raw_formula_kelly_fraction": 0.183442
+          },
+          "selected_edge": {"fraction": 0.183442, "source": "conditional OOS formula Kelly"}
+        },
+        "position_guidance": {
+          "portfolio_value": 10000,
+          "portfolio_value_source": "default_10000_simulation",
+          "simulation_label": "$10,000 模擬帳戶",
+          "current_realized_vol_20d_annualized": 0.8083568,
+          "daily_sigma": 0.050922,
+          "guidance_variant": "quarter",
+          "guidance_fraction": 0.0403801,
+          "guidance_notional_dollars": 403.80,
+          "guidance_binding_constraint": "quarter_kelly_after_overlay",
+          "variants": {
+            "full": {"theoretical_post_overlay_fraction": 0.1615205, "final_fraction": 0.05, "notional_dollars": 500, "exact_fractional_shares": 5.1172, "one_day_one_sigma_nav_fraction": 0.0025461, "one_day_one_sigma_dollars": 25.46, "stop_loss_dollars": 17.99, "binding_constraint": "concentration_cap"},
+            "half": {"theoretical_post_overlay_fraction": 0.0807603, "final_fraction": 0.05, "notional_dollars": 500, "exact_fractional_shares": 5.1172, "one_day_one_sigma_nav_fraction": 0.0025461, "one_day_one_sigma_dollars": 25.46, "stop_loss_dollars": 17.99, "binding_constraint": "concentration_cap"},
+            "quarter": {"theoretical_post_overlay_fraction": 0.0403801, "final_fraction": 0.0403801, "notional_dollars": 403.80, "exact_fractional_shares": 4.1327, "one_day_one_sigma_nav_fraction": 0.002056, "one_day_one_sigma_dollars": 20.56, "stop_loss_dollars": 14.53, "binding_constraint": "quarter_kelly_after_overlay"}
+          }
+        }
+      }
+    },
+    "scenarios": {
+      "title": "情景推演",
+      "status": "complete_demo",
+      "freshness_status": "next_session_conditional",
+      "source_artifacts": ["stock_eval.json"],
+      "missing_fields": ["same_session_vwap", "same_session_orh", "same_session_orl"],
+      "scenario_trees": [
+        {
+          "id": "intraday_event_tree",
+          "horizon": "intraday",
+          "title": "日內情景樹 / 價格事件 → 驗證 → 下一步",
+          "evidence_status": "next_session_conditional",
+          "construction_policy": "compositional_event_tree",
+          "anchor_book": [
+            {"id": "CURRENT", "label": "最近有效價格", "value": 97.71, "role": "current", "source": "stock_eval.json:technical.last_price", "method": "latest completed daily close; reference only", "confidence": "medium", "status": "reference_only"},
+            {"id": "S1", "label": "支撐 S1", "value": 94.195, "role": "support", "source": "stock_eval.json:technical.support_resistance.supports[0]", "method": "deterministic support candidate from swing/Fibonacci bundle", "confidence": "medium", "status": "observed"},
+            {"id": "S2", "label": "支撐 S2", "value": 89.59, "role": "support", "source": "stock_eval.json:technical.support_resistance.supports[1]", "method": "deterministic support candidate from swing/Fibonacci bundle", "confidence": "medium", "status": "observed"},
+            {"id": "R1", "label": "壓力 R1", "value": 103.66, "role": "resistance", "source": "stock_eval.json:technical.support_resistance.resistances[0]", "method": "deterministic resistance candidate from swing/Fibonacci bundle", "confidence": "medium", "status": "observed"},
+            {"id": "R2", "label": "壓力 R2", "value": 105.5596, "role": "resistance", "source": "stock_eval.json:technical.support_resistance.resistances[1]", "method": "deterministic resistance candidate from swing/Fibonacci bundle", "confidence": "medium", "status": "observed"},
+            {"id": "EMA20", "label": "EMA20", "value": 99.2026, "role": "moving_average", "source": "stock_eval.json:technical.ma.ema20", "method": "20D exponential moving average", "confidence": "medium", "status": "observed"},
+            {"id": "ATR_UP", "label": "+1 ATR", "value": 105.2546, "role": "volatility", "source": "stock_eval.json:technical.momentum.atr14", "method": "97.71 + ATR14; volatility room, not resistance", "confidence": "medium", "status": "observed"},
+            {"id": "ATR_DN", "label": "-1 ATR", "value": 90.1654, "role": "volatility", "source": "stock_eval.json:technical.momentum.atr14", "method": "97.71 - ATR14; volatility room, not support", "confidence": "medium", "status": "observed"}
+          ]
+        }
+      ]
+    },
+    "governance": {
+      "title": "治理與審查",
+      "status": "complete_demo",
+      "freshness_status": "frozen",
+      "source_artifacts": ["evidence.json", "claims.json", "bull.json", "bear.json", "skeptic.json", "arbitration.json"],
+      "missing_fields": [],
+      "metrics": {"research_state": "READY_CONDITIONAL", "evidence_freeze": true}
+    },
+    "evidence": {
+      "title": "證據鏈",
+      "status": "complete_demo",
+      "freshness_status": "frozen",
+      "source_artifacts": ["evidence.json", "stock_eval.json", "valuation_snapshot.json", "options_features.json", "options_gamma_structure.json", "report_manifest.json", "SHA256SUMS.txt"],
+      "missing_fields": []
+    }
+  }
+}
