@@ -10,38 +10,36 @@
   },
   "modules": {
     "fundamentals": {
-      "blocks": [{"type": "paragraph", "title": "營運橋接", "text": "結構化敘事，不要用 Markdown 標題藏邏輯。"}],
-      "judgments": [{"label": "核心經濟性", "conclusion": "", "why": "", "confidence": "medium", "evidence_ids": [], "invalidation": []}],
+      "data_lane": "research_non_ibkr",
+      "source_roles": {
+        "reported_truth": ["SEC_EDGAR", "ISSUER_IR"],
+        "standardization": ["SIMFIN"],
+        "expectations": ["ALPHA_VANTAGE"],
+        "events_metadata_crosscheck": ["FINNHUB"],
+        "market_reaction": ["ALPACA"],
+        "optional_legacy_fundamentals": ["IBKR_REUTERS_FUNDAMENTALS"]
+      },
+      "blocks": [
+        {"type": "paragraph", "title": "申報真相層", "text": "先列 SEC/IR reported actual、filing identity、period、filed/available time；其他 provider 不可覆蓋。"},
+        {"type": "paragraph", "title": "標準化與同業層", "text": "列 SimFin coverage / statement mode / mapping conflict；它服務 peer-ready comparison，不控制 reported actual。"},
+        {"type": "paragraph", "title": "市場預期層", "text": "列 Alpha Vantage EPS/Revenue estimates、analyst count、revision/surprise，以及 CURRENT_SNAPSHOT_ONLY 或 PIT_QUALIFIED。"},
+        {"type": "paragraph", "title": "事件與 metadata 核對", "text": "列 Finnhub profile/peers/earnings/calendar/news/metric 狀態；adjusted expectation 與 SEC GAAP actual 分開。"},
+        {"type": "paragraph", "title": "Actual vs Expectation vs Market Reaction", "text": "最後比較 actual trajectory、estimate direction 與 Alpaca IEX price-volume-option reaction；IEX 不是 SIP，市場反應不是會計事實。"}
+      ],
+      "judgments": [
+        {"label": "核心經濟性", "conclusion": "", "why": "", "confidence": "medium", "evidence_ids": [], "invalidation": []},
+        {"label": "市場預期差", "conclusion": "", "why": "", "confidence": "conditional", "evidence_ids": [], "invalidation": []}
+      ],
       "knowledge_notes": [{"title": "需要解釋的概念", "explanation": "可遷移的分析知識。", "applied_to_current_report": "為什麼在本報告重要。"}],
-      "calculation_contract": "若淨利 <= 0，不得把 CFO/淨利或 OCF/淨利的正比值描述成正常的現金轉換率倍數；應展示淨利與營運現金流的絕對值、方向、margin/變化，並說明兩者皆為負時 ratio 的經濟含義失真。"
+      "analysis_contract": "固定順序為 reported truth -> trajectory -> SimFin standardization -> Alpha Vantage expectations -> Finnhub event/metadata cross-check -> expectation vs actual -> Alpaca market reaction -> valuation readiness -> conflicts/missing evidence。不同角色不可互相填空。單股研究預設不開 IBKR/TWS；只有明確的 IBKR exception 才跨 lane。",
+      "calculation_contract": "若淨利 <= 0，不得把 CFO/淨利或 OCF/淨利的正比值描述成正常的現金轉換率倍數；所有 ratio 仍受同一 filing/period gate 約束。"
     },
-    "valuation": {
-      "blocks": [],
-      "judgments": [],
-      "knowledge_notes": [],
-      "calculation_contract": "估值模組只能由盈利、現金流、資產負債表、可核驗預期、可比公司或明示估值模型推導價格/區間。不得在缺少估值模型時，把技術支撐/阻力、VWAP、ORH/ORL、EMA/SMA 等價位改名為估值下行/基準/上行情景。技術價位可在 timing 模組引用，但不是 fair value。"
-    },
-    "technical": {"blocks": [], "judgments": [], "knowledge_notes": []},
-    "options": {"blocks": [], "judgments": [], "knowledge_notes": []},
+    "valuation": {"blocks": [], "judgments": [], "knowledge_notes": [], "calculation_contract": "估值模組只能由盈利、現金流、資產負債表、可核驗預期、可比公司或明示估值模型推導價格/區間。不得把技術支撐/阻力、VWAP、ORH/ORL、EMA/SMA 改名為 fair value。"},
+    "technical": {"blocks": [], "judgments": [], "knowledge_notes": [], "data_lane": "research_non_ibkr"},
+    "options": {"blocks": [], "judgments": [], "knowledge_notes": [], "data_lane": "research_non_ibkr_by_default"},
     "governance": {"blocks": [], "judgments": [], "knowledge_notes": []},
-    "risk": {
-      "blocks": [],
-      "judgments": [],
-      "knowledge_notes": [],
-      "calculation_contract": "Kelly、setup identity、stop、account value 與 portfolio caps 來自 deterministic stock_eval.json。研究敘事只能解釋，不得覆寫。若沒有使用者組合值，deterministic engine 使用明確標示的 $10,000 模擬帳戶。極小樣本或 grid-cap pathology 可展示診斷，但不可轉成 Kelly 倉位；只有存在可辯護 stop 時才可退化為 risk-only sizing。"
-    },
-    "scenarios": {
-      "blocks": [],
-      "judgments": [],
-      "knowledge_notes": [],
-      "long_term_context": {
-        "contract": "季度以上情景只允許公司營運 KPI、毛利/利潤/現金流、資本強度/稀釋、競爭地位、需求/產能與估值/資本成本。不得用現價、支撐/阻力、EMA/SMA、VWAP、ORH/ORL、ATR、突破/跌破/回踩等技術價格條件作為 strengthen/mixed/weaken trigger；這些只屬日內或短期 timing。",
-        "watch": ["公司特定營運 KPI", "毛利/利潤與現金流", "資本強度/稀釋", "競爭/需求/產能", "估值與資本成本"],
-        "strengthen_trigger": "替換成能強化公司核心因果鏈的營運/現金流/競爭/估值證據。",
-        "mixed_trigger": "替換成部分改善但價值創造仍被另一組基本面變數抵消的情景。",
-        "weaken_trigger": "替換成核心營運機制、資本效率、競爭位置或估值支持惡化的情景。"
-      }
-    },
+    "risk": {"blocks": [], "judgments": [], "knowledge_notes": [], "calculation_contract": "Kelly、setup identity、stop、account value 與 portfolio caps 來自 deterministic stock_eval.json；研究敘事只能解釋，不得覆寫。"},
+    "scenarios": {"blocks": [], "judgments": [], "knowledge_notes": [], "long_term_context": {"contract": "季度以上情景只允許公司營運 KPI、毛利/利潤/現金流、資本強度/稀釋、競爭地位、需求/產能與估值/資本成本。不得用日內技術價格條件作為長期 trigger。", "watch": ["公司特定營運 KPI", "毛利/利潤與現金流", "資本強度/稀釋", "競爭/需求/產能", "估值與資本成本"], "strengthen_trigger": "替換成能強化公司核心因果鏈的營運/現金流/競爭/估值證據。", "mixed_trigger": "替換成部分改善但價值創造仍被另一組基本面變數抵消的情景。", "weaken_trigger": "替換成核心營運機制、資本效率、競爭位置或估值支持惡化的情景。"}},
     "evidence": {"blocks": [], "judgments": [], "knowledge_notes": []}
   }
 }

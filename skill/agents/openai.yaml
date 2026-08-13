@@ -1,4 +1,4 @@
 interface:
   display_name: "Stock Evaluation System"
   short_description: "Evidence-backed, adversarially reviewed single-stock research"
-  default_prompt: "Use $stock-eval-system to analyze a listed stock with point-in-time evidence, reproducible calculations, a Claim Graph, Bull/Bear/Skeptic review when underwriting is requested, explicit risk limits, and no automatic order execution."
+  default_prompt: "Use $stock-eval-system to analyze a listed stock with point-in-time evidence and reproducible calculations. For normal single-stock research, use the non-IBKR Research Lane by default: SEC/IR for reported truth, SimFin for standardization, Alpha Vantage for expectations, Finnhub for events/metadata, Alpaca for timestamped market/event reaction, plus Massive/yfinance when needed. Keep IBKR/TWS reserved for the live radar unless an explicit IBKR-only entitlement or execution-adjacent exception is required."

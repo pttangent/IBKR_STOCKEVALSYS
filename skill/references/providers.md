@@ -1,46 +1,88 @@
 # Provider routing
 
-Official documentation must be consulted for uncertain behavior: [IBKR TWS API](https://www.interactivebrokers.com/campus/ibkr-api-page/twsapi-doc/), [IBKR market-data requests](https://www.interactivebrokers.com/docs/tws-api/doc/quick-start/requesting-market-data), [IBKR subscriptions](https://www.interactivebrokers.com/campus/ibkr-api-page/market-data-subscriptions/), [Massive Options REST](https://massive.com/docs/rest/options/overview), [Massive contracts](https://massive.com/docs/rest/options/contracts/all-contracts), [Massive option bars](https://massive.com/docs/rest/options/aggregates/custom-bars), [Massive snapshots](https://massive.com/docs/rest/options/snapshots/option-contract-snapshot), [Massive pricing](https://massive.com/pricing?product=options), [yfinance Ticker](https://ranaroussi.github.io/yfinance/reference/api/yfinance.Ticker.html), [yfinance download](https://ranaroussi.github.io/yfinance/reference/api/yfinance.download.html), and [yfinance disclaimer](https://ranaroussi.github.io/yfinance/index.html).
+This file is the provider-routing authority for the stock-evaluation skill. When a generic instruction elsewhere says “IBKR first”, the **lane-specific rules below override it** for single-stock research so the live IBKR connection can remain dedicated to the intraday radar.
+
+Official documentation must be consulted for uncertain behavior: [IBKR TWS API](https://www.interactivebrokers.com/campus/ibkr-api-page/twsapi-doc/), [IBKR market-data requests](https://www.interactivebrokers.com/docs/tws-api/doc/quick-start/requesting-market-data), [IBKR subscriptions](https://www.interactivebrokers.com/campus/ibkr-api-page/market-data-subscriptions/), [Alpaca market data](https://docs.alpaca.markets/us/docs/about-market-data-api), [Alpaca stock snapshot](https://docs.alpaca.markets/us/reference/stocksnapshotsingle), [Alpaca news](https://docs.alpaca.markets/us/v1.1/reference/news-3), [Alpaca corporate actions](https://docs.alpaca.markets/us/v1.4.2/reference/corporateactions-1), [Massive Options REST](https://massive.com/docs/rest/options/overview), [Massive contracts](https://massive.com/docs/rest/options/contracts/all-contracts), [Massive option bars](https://massive.com/docs/rest/options/aggregates/custom-bars), [yfinance Ticker](https://ranaroussi.github.io/yfinance/reference/api/yfinance.Ticker.html), [yfinance download](https://ranaroussi.github.io/yfinance/reference/api/yfinance.download.html), and [yfinance disclaimer](https://ranaroussi.github.io/yfinance/index.html).
+
+## Two-lane architecture
+
+### Research Lane — default for single-stock analysis
+
+The default single-stock research run should **not open an IBKR/TWS market-data session** when non-IBKR evidence can satisfy the requested module. This prevents research jobs from competing with the live radar for IBKR subscriptions, pacing, client sessions, option permissions, and quote capacity.
+
+Default routing:
+
+- Reported fundamentals / filings: SEC + issuer IR.
+- Standardized fundamentals / peer-ready schema: SimFin.
+- Market expectations / estimate revisions: Alpha Vantage.
+- Events / metadata / peers / earnings calendar / quick cross-check: Finnhub.
+- Current timestamped stock reaction, IEX quote/snapshot/bars, assets, news, corporate actions, option-contract/indicative context: Alpaca.
+- Longer historical adjusted stock bars or independent cross-check: Massive REST when entitled; otherwise Alpaca IEX historical bars or yfinance research fallback, clearly labelled.
+- Non-live option research: Alpaca indicative contract/snapshot context + Massive historical/reference + yfinance independent chain/model input as available. Do not wake IBKR solely because IV/Greeks are absent from the Alpaca Basic response.
+
+The Research Lane may use IBKR only when one of these conditions is true:
+
+1. the user explicitly requests IBKR evidence;
+2. the requested field is genuinely unavailable from the non-IBKR sources and materially changes the conclusion;
+3. exchange-entitled real-time/OPRA evidence is required for the research question;
+4. execution-adjacent validation is explicitly requested.
+
+If none applies, an IBKR call is a routing error, not an upgrade.
+
+### Radar Lane — IBKR/TWS reserved for live monitoring
+
+The live radar owns the IBKR/TWS connection for exchange-entitled stock/option quotes, tick/short-bar microstructure, streaming news where available, position/risk monitoring, and execution-adjacent state. Radar work may use a separate clientId/session policy, but research must not consume it by default.
+
+A report should record `data_lane=research_non_ibkr` or `data_lane=radar_ibkr` for every market-data artifact. When a research run crosses into IBKR, record the reason as `ibkr_exception_reason`.
+
+## Alpaca in the Research Lane
+
+Use `scripts/fetch_alpaca_research.py`. The validated Basic/paper environment supports IEX stock snapshot/trade/quote/bars, assets, news, corporate actions, option contracts, and indicative option snapshots. Current entitlement observations are a reproducible environment snapshot, not a permanent vendor guarantee.
+
+Important limits:
+
+- IEX is not consolidated SIP. Label IEX quote/volume as `IEX_ONLY` and do not present it as total-market volume.
+- Current Basic account tests returned 403 for SIP stock feed, OPRA option feed, and historical option bars.
+- Indicative option snapshots may contain quote/trade fields while IV/Greeks are absent. Missing IV/Greeks must remain missing; do not fabricate them.
+- Alpaca is a market/event layer, not an accounting-fundamentals source.
+- If a timestamped option price is usable, a deterministic model may derive model IV, but label it `MODEL_IV_FROM_PRICE`, not provider IV and not executable OPRA IV.
+
+For price freshness in a research report, Alpaca IEX snapshot/quote is preferred over opening an IBKR session. For technical history, use Alpaca bars when IEX-only coverage is acceptable; if consolidated/adjusted history materially matters, prefer Massive or an explicitly labelled independent fallback.
 
 ## IBKR/TWS
 
-Use `ib_async` against the local TWS/IB Gateway socket, normally `127.0.0.1:7497` for paper trading. Qualify `Stock(symbol, "SMART", "USD")` before requests. Use `readonly=True`, `useRTH=True`, and capture `marketDataType`, quote timestamp, and IBKR error codes. A successful socket connection is not evidence of a live entitlement: distinguish live, delayed, frozen, no subscription, and stale.
+Use `ib_async` against local TWS/IB Gateway only when the lane policy permits it. Qualify `Stock(symbol, "SMART", "USD")` before requests, use `readonly=True`, capture marketDataType/quote timestamp/error codes, and distinguish live, delayed, frozen, no-subscription, and stale states. A successful socket connection is never evidence of entitlement.
 
-Historical bars: `reqHistoricalDataAsync` with `TRADES`, `1 day` bars, and enough history for the requested indicator. For intraday acquisition, use the retry/chunk adapter: `scripts/fetch_intraday_resilient.py` tries a 30-day 1-minute batch once, then immediately falls back to `14 D + 14 D + 4 D` chunks. IBKR documents that large historical requests can be soft-throttled or slow-loaded even though the hard 1-minute limitation was lifted; therefore a full chunked result after a one-shot timeout is successful IBKR acquisition. Repeating the same timed-out large request is opt-in, not the default. Never discard a timeout as an empty dataset. For options, use the project-local historical MCP chain path when live/OPRA permission is absent: it uses `reqSecDefOptParams` plus historical `reqHistoricalDataAsync` bars. The direct quote/Greeks helper is hard-blocked unless `--allow-live-options` is explicitly supplied. Record error 354/10167 as missing option market data rather than converting model fields to market quotes. Never place an order from this skill.
+For Radar Lane short bars or microstructure, follow the project paging/chunk rules. For options, use the project-local MCP historical-chain path when appropriate; the direct quote/Greeks helper remains hard-blocked unless live option permission is explicitly confirmed. Error 354/10167 is an entitlement diagnostic, not proof that the underlying company lacks data.
+
+Never place an order from this skill.
 
 ## Massive REST
 
-Use `MASSIVE_API_KEY` and optional `MASSIVE_BASE_URL` environment variables. Never place keys in JSON, Markdown, shell history, or source code. The free tier is rate-limited, so the fetcher spaces calls and records HTTP status, provider timestamp, and missing fields.
+Use `MASSIVE_API_KEY` and optional `MASSIVE_BASE_URL`. Keep keys out of artifacts. Useful research endpoints include adjusted daily/minute aggregates and option contract/reference/history. Treat results according to actual account entitlement and timestamp; a reference contract is not a quote and does not imply IV/Greeks.
 
-Useful endpoints for this skill:
+## yfinance
 
-- `/v2/aggs/ticker/{TICKER}/range/1/day/{FROM}/{TO}` for historical adjusted OHLCV.
-- `/v2/aggs/ticker/{TICKER}/range/1/minute/{FROM}/{TO}` for minute aggregates when IBKR is unavailable or for a cross-check. The free tier includes minute aggregates, but not second aggregates or raw trades; the endpoint may include extended-hours bars, so filter to 09:30–16:00 ET before comparing with IBKR RTH data.
-- `/v2/aggs/ticker/{TICKER}/prev` for the latest available aggregate when supported by the account.
-- `/v3/reference/options/contracts` for contract reference. Contract reference is not a quote and does not imply IV/Greeks.
-- The Options Contract Snapshot endpoint can expose quotes, IV, Greeks, and OI only when the current plan includes that endpoint; the official plan matrix marks it unavailable to Options Basic Free. Do not treat contract reference as a substitute.
+Use only as an independent research fallback/cross-check. Label provenance `secondary_unofficial`. It may be useful for an independent option chain or historical bars when official APIs are unavailable, but must not silently become execution-grade evidence.
 
-Treat Massive results as EOD/delayed unless the response and account explicitly establish otherwise. Do not infer option direction from put/call totals.
+## Research market-data ladder
 
-## Fallback ladder and source reconciliation
+For a normal single-stock research report:
 
-For a requested 1-minute window, use this order:
+1. Alpaca IEX snapshot/quote for current timestamped stock context.
+2. Massive adjusted daily/minute history when the account provides the needed history/coverage.
+3. Alpaca IEX bars for research history when IEX-only coverage is acceptable.
+4. yfinance as an explicitly labelled independent fallback.
+5. IBKR only under an exception condition listed above.
 
-1. IBKR single batch with a fresh readonly client and bounded retries.
-2. IBKR smaller chunks with timestamp cursor, deduplication, and a coverage check.
-3. Massive minute aggregates as a REST fallback/cross-check; do not use it to fabricate 10-second bars.
-4. `scripts/fetch_yfinance_intraday.py` as the final fallback. It chunks 1-minute requests into windows no longer than seven days because Yahoo may reject longer individual requests even though yfinance documents a broader recent-intraday horizon. It does not provide IBKR-style trade count, and it is an unofficial research wrapper around Yahoo's publicly available APIs. It is not the primary source for a reproducible execution-adjacent report.
+For an execution-adjacent or live-radar question, use the Radar Lane instead; do not reinterpret the Research Lane ladder as execution quality.
 
-Run `scripts/compare_intraday_sources.py` on overlapping packets. Compare timestamps and close prices first. Treat volume mismatches separately because IBKR can return shares or round lots depending on the TWS/API setting, while Massive returns its own volume convention. A fallback packet must record which source was selected, every failed attempt, the reason for failure, and the fields that are unavailable from the fallback source.
-
-The current Options Basic free tier is documented as $0/month with 5 API calls/minute, two years of historical data, EOD data, reference data, corporate actions, technical indicators, and minute aggregates. It does not list real-time Greeks/IV, open interest, snapshots, trades, quotes, WebSockets, or second aggregates. Verify the account dashboard before relying on any field.
+Run cross-source reconciliation when overlapping packets exist. Compare timestamps and price first; compare volume only after acknowledging venue/feed differences. A fallback packet must preserve attempts, errors, source labels, coverage, and unavailable fields.
 
 ## Web and filings
 
-Use company IR, SEC filings, earnings releases, and transcripts for reported facts. Capture URL, published date, access timestamp, period covered, and evidence label. Use web search for current events and market context, but preserve primary sources for reported financials.
+Use company IR, SEC filings, earnings releases, and transcripts for reported facts. Capture URL, published date, access timestamp, period covered, and evidence label. Use web search for current context only when needed, while preserving primary sources for reported company facts.
 
 ## MCP decision rule
 
-For a free tier, keep Massive as a REST adapter inside the skill. Add Massive MCP only when a connected client needs interactive discovery across many endpoints, shared auth/observability, or repeated tool calls from several skills. MCP does not upgrade the underlying entitlement and should not be added solely to obtain Greeks or snapshots that the account does not provide. IBKR MCP is also optional because the existing local readonly adapter can be called directly by the deterministic fetcher.
-
-Massive's official AI-tools documentation describes a hosted remote MCP at `https://mcp.massive.com/` and a self-hosted server for larger local datasets; both mirror the user's entitlements. Treat third-party package names or old `npx` examples as unverified until checked against the current official documentation.
+MCP does not upgrade provider entitlement. Keep REST adapters local when that is enough. IBKR MCP belongs primarily to the Radar Lane and to explicit IBKR research exceptions; it should not be the default dependency of a standalone stock research report.
