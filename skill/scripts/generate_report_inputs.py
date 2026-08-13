@@ -218,6 +218,7 @@ def main() -> None:
 
     stock = load(run / "stock_eval.json")
     sec = load(run / "sec_research.json")
+    reconciled = load(run / "fundamentals_reconciled.json")
     options = load(run / "options_features.json")
     gamma = load(run / "options_gamma_structure.json")
     if not options:
@@ -240,6 +241,8 @@ def main() -> None:
     operating_cf = fact(sec, "operating_cash_flow")
     cash = fact(sec, "cash_and_equivalents")
     filed = ((sec.get("data") or {}).get("canonical_financials") or {}).get("facts", {}).get("revenue", {}).get("filed")
+    reconciliation_quality = reconciled.get("quality") or {}
+    reconciliation_providers = sorted((reconciled.get("providers") or {}).keys())
 
     market_candidates = [
         (run / "market_ibkr_daily_full.json", "IBKR_TWS", "https://www.interactivebrokers.com/campus/ibkr-api-page/twsapi-doc/"),
@@ -260,7 +263,7 @@ def main() -> None:
         "schema_version": "1.0", "source_id": sec_id, "provider": "SEC_EDGAR", "source_type": "company_filing",
         "as_of": filed or report_as_of, "available_at": filed or report_as_of, "retrieved_at": sec.get("retrieved_at", now_utc.isoformat()),
         "reliability": "primary", "source_url": sec.get("source_url", "https://www.sec.gov/edgar/search/"),
-        "data": {"symbol": symbol, "filed": filed, "facts": {k: fact(sec, k) for k in ["revenue", "gross_profit", "net_income", "operating_cash_flow", "cash_and_equivalents", "assets", "liabilities", "equity", "shares_outstanding"]}},
+        "data": {"symbol": symbol, "filed": filed, "facts": {k: fact(sec, k) for k in ["revenue", "gross_profit", "net_income", "operating_cash_flow", "cash_and_equivalents", "assets", "liabilities", "equity", "shares_outstanding"]}, "reconciliation": {"available": bool(reconciled), "providers": reconciliation_providers, "quality": reconciliation_quality}},
     }
     market_source = {
         "schema_version": "1.0", "source_id": market_id, "provider": market_provider, "source_type": "market_data",
@@ -297,7 +300,7 @@ def main() -> None:
         "global_limitations": [f"最新 deterministic 日線截至 {technical_as_of}，不是自動等同報告日期 {report_as_of} 的已完成收盤。", "沒有 PIT 一致預期或可重現估值模型，不提出價格型 fair value。", "沒有 dealer sign 時 Gross Gamma 不等於 signed GEX。"],
         "modules": {
             "overview": {"blocks": [{"type": "paragraph", "title": "研究結論", "text": f"{judgment['momentum_read']} {judgment['structure_read']} {judgment['fundamental_read']} {judgment['options_read']}"}], "judgments": [{"label": "研究狀態", "conclusion": f"{symbol}：{judgment['momentum_read']}", "why": f"{judgment['level_read']} {judgment['fundamental_read']}", "confidence": "medium", "evidence_ids": [market_id, sec_id]}]},
-            "fundamentals": {"blocks": [{"type": "paragraph", "title": "最新已報告數字", "text": f"SEC（{filed or '最新申報'}）：收入 {money(revenue, 0)}；毛利 {money(gross_profit, 0)}；淨利 {money(net_income, 0)}；營運現金流 {money(operating_cf, 0)}；現金及等價物 {money(cash, 0)}。"}, {"type": "paragraph", "title": "看什麼 / 讀到什麼 / 為什麼重要", "text": f"看什麼：收入、盈利、營運現金流是否同向。讀到什麼：{judgment['fundamental_read']} 為什麼重要：這決定價格重估是否有盈利/現金流承接。限制：未取得的前瞻數字不補成共識。"}], "judgments": [{"label": "基本面判斷", "conclusion": judgment["fundamental_read"], "why": f"最新申報日期 {filed or '未知'}。", "confidence": "medium", "evidence_ids": [sec_id]}]},
+            "fundamentals": {"blocks": [{"type": "paragraph", "title": "最新已報告數字", "text": f"SEC（{filed or '最新申報'}）：收入 {money(revenue, 0)}；毛利 {money(gross_profit, 0)}；淨利 {money(net_income, 0)}；營運現金流 {money(operating_cf, 0)}；現金及等價物 {money(cash, 0)}。"}, {"type": "paragraph", "title": "多源核對狀態", "text": f"會計主值仍採 SEC；交叉核對資料源：{', '.join(reconciliation_providers) if reconciliation_providers else '尚未產生 fundamentals_reconciled.json'}。比例安全狀態：{'可用' if reconciliation_quality.get('ratio_safe') else '不可用或未驗證'}；交叉來源不會靜默替換 SEC 的期間。"}, {"type": "paragraph", "title": "看什麼 / 讀到什麼 / 為什麼重要", "text": f"看什麼：收入、盈利、營運現金流是否同向。讀到什麼：{judgment['fundamental_read']} 為什麼重要：這決定價格重估是否有盈利/現金流承接。限制：未取得的前瞻數字不補成共識。"}], "judgments": [{"label": "基本面判斷", "conclusion": judgment["fundamental_read"], "why": f"最新申報日期 {filed or '未知'}；SEC 為會計主來源，多源資料僅作同期間核對。", "confidence": "medium", "evidence_ids": [sec_id]}]},
             "valuation": {"blocks": [{"type": "paragraph", "title": "估值狀態", "text": "目前沒有可核驗 PIT 一致預期或可重現 DCF/可比公司/倍數模型，因此不把技術價位改名成 fair value。"}, {"type": "paragraph", "title": "估值判斷", "text": f"下行情景：{judgment['valuation_down']} 基準情景：{judgment['valuation_base']} 上行情景：{judgment['valuation_up']}"}], "judgments": [{"label": "估值判斷", "conclusion": judgment["valuation_base"], "why": f"{judgment['valuation_down']} {judgment['valuation_up']}", "confidence": "low", "evidence_ids": [sec_id]}]},
             "technical": {"blocks": [{"type": "paragraph", "title": "日線技術狀態", "text": f"{technical_as_of} 可用的最新完整收盤參考為 {money(price)}；EMA20 {money(ma.get('ema20'))}、SMA50 {money(ma.get('sma50'))}、SMA200 {money(ma.get('sma200'))}；RSI14 {rsi}；20 日報酬 {current_return}；90 日報酬 {long_return}；20 日實現波動率 {rv}。"}], "judgments": [{"label": "技術判斷", "conclusion": f"{judgment['momentum_read']} {judgment['level_read']}", "why": f"{judgment['structure_read']}；沒有 same-session VWAP/ORH/ORL 時只輸出 next-session conditional tree。", "confidence": "medium", "evidence_ids": [market_id]}]},
             "options": {"blocks": [{"type": "paragraph", "title": "期權資料質量", "text": f"目前 Gamma 狀態 {gamma_status}；正 OI 列 {positive_oi if positive_oi is not None else '未知'}。{judgment['options_read']}"}], "judgments": [{"label": "期權判斷", "conclusion": judgment["options_read"], "why": "OI/IV 可建立 unsigned concentration，但沒有 dealer/customer side 時不能推 signed GEX。", "confidence": "low", "evidence_ids": [opt_id]}]},
@@ -343,7 +346,7 @@ def main() -> None:
     for name in ["overview", "fundamentals", "valuation", "technical", "options", "governance", "risk", "scenarios", "evidence"]:
         manifest["modules"][name] = dict(common)
     manifest["modules"]["overview"]["source_artifacts"] = ["sec_research.json", "stock_eval.json"]
-    manifest["modules"]["fundamentals"]["source_artifacts"] = ["sec_research.json", "ir_primary_sources.json"]
+    manifest["modules"]["fundamentals"]["source_artifacts"] = ["sec_research.json", "ir_primary_sources.json"] + (["fundamentals_reconciled.json"] if reconciled else [])
     manifest["modules"]["valuation"].update({"status": "conditional", "confidence": "low", "freshness_status": "conditional_no_pit_consensus", "source_artifacts": ["sec_research.json", "valuation_snapshot.json"], "missing_fields": ["point_in_time_consensus", "reproducible_valuation_model"]})
     manifest["modules"]["technical"].update({"module_as_of": technical_as_of, "source_artifacts": [market_path.name, "stock_eval.json", "intraday_features.json"], "missing_fields": ["same_session_orh_orl_vwap"]})
     manifest["modules"]["options"].update({"status": "partial", "confidence": "low", "freshness_status": "historical_proxy_only", "source_artifacts": ["options_yfinance_full.json", "options_features.json", "options_gamma_structure.json"], "missing_fields": missing_options})

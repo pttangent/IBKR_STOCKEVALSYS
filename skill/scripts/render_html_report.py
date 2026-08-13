@@ -31,6 +31,10 @@ CSS += r'''
 .scenario-toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0 6px;color:var(--muted);font-size:10px}.scenario-toolbar button{border:1px solid var(--border);background:#111;color:var(--fg);padding:5px 9px;font:inherit;cursor:pointer}.scenario-toolbar button:hover{border-color:var(--cyan);color:var(--cyan)}.scenario-toolbar .scenario-hint{margin-left:4px}.scenario-viewport{position:relative;height:560px;overflow:hidden;border:1px solid var(--border);background:#080808;touch-action:none;cursor:grab;user-select:none}.scenario-viewport.is-panning{cursor:grabbing}.scenario-canvas{display:inline-block;min-width:max-content;transform-origin:0 0;padding:2px}.scenario-wrap{overflow:visible;padding:8px 0 18px}.scenario-viewport details,.scenario-viewport summary{user-select:text}.scenario-viewport .tree-card{user-select:text}.tree-children.collapsed{display:none}.tree-toggle{display:block;margin-top:8px;border:1px solid #3f3f46;background:#111;color:var(--muted);padding:3px 6px;font:inherit;font-size:9px;cursor:pointer}.tree-toggle:hover{color:var(--cyan);border-color:var(--cyan)}@media(max-width:900px){.scenario-viewport{height:620px}.scenario-canvas{min-width:100%;width:100%}}
 '''
 
+CSS += r'''
+.price-anchor.provenance{position:relative;cursor:help}.price-anchor.provenance::after{content:attr(data-tooltip);position:absolute;z-index:30;left:0;top:calc(100% + 7px);display:none;min-width:290px;max-width:430px;padding:9px 11px;border:1px solid #52525b;border-radius:6px;background:#111;color:#f4f4f5;box-shadow:0 8px 24px #000b;font:11px/1.5 "Noto Sans TC",system-ui,sans-serif;white-space:normal;text-align:left;pointer-events:none}.price-anchor.provenance:hover::after,.price-anchor.provenance:focus::after{display:block}
+'''
+
 SCENARIO_INTERACTION_JS = r'''
 (() => {
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -64,6 +68,22 @@ SCENARIO_INTERACTION_JS = r'''
       y = 14;
       apply();
     };
+    const directChild = (parent, selector) => Array.from(parent?.children || []).find((child) => child.matches(selector));
+    const setNodeExpanded = (button, children, expanded) => {
+      if (!children) return;
+      children.classList.toggle('collapsed', !expanded);
+      if (button) {
+        button.setAttribute('aria-expanded', String(expanded));
+        button.textContent = `${expanded ? '收合子節點' : '展開子節點'}（${children.children.length}）`;
+      }
+    };
+    const toggleNode = (card) => {
+      const item = card?.closest('li');
+      const children = directChild(item, '.tree-children');
+      if (!children) return;
+      const button = directChild(card, '.tree-toggle');
+      setNodeExpanded(button, children, children.classList.contains('collapsed'));
+    };
     panel.querySelectorAll('[data-scenario-action]').forEach((button) => {
       button.addEventListener('click', () => {
         const action = button.dataset.scenarioAction;
@@ -72,19 +92,16 @@ SCENARIO_INTERACTION_JS = r'''
         if (action === 'fit') fit();
         if (action === 'reset') { scale = 1; x = 14; y = 14; apply(); }
         if (action === 'expand') {
-          panel.querySelectorAll('.tree-children').forEach((children) => children.classList.remove('collapsed'));
-          panel.querySelectorAll('[data-tree-toggle]').forEach((button) => { button.setAttribute('aria-expanded', 'true'); button.textContent = '收縮子節點'; });
+          panel.querySelectorAll('.tree-children').forEach((children) => {
+            const card = directChild(children.parentElement, '.tree-card');
+            setNodeExpanded(directChild(card, '.tree-toggle'), children, true);
+          });
         }
         if (action === 'collapse') {
           panel.querySelectorAll('.tree-children').forEach((children) => {
             const collapsed = Number(children.dataset.depth || 0) >= 1;
-            children.classList.toggle('collapsed', collapsed);
-          });
-          panel.querySelectorAll('[data-tree-toggle]').forEach((button) => {
-            const children = button.closest('li')?.querySelector(':scope > .tree-children');
-            const expanded = children ? !children.classList.contains('collapsed') : false;
-            button.setAttribute('aria-expanded', String(expanded));
-            button.textContent = expanded ? '收縮子節點' : '展開子節點';
+            const card = directChild(children.parentElement, '.tree-card');
+            setNodeExpanded(directChild(card, '.tree-toggle'), children, !collapsed);
           });
         }
       });
@@ -92,11 +109,16 @@ SCENARIO_INTERACTION_JS = r'''
     panel.querySelectorAll('[data-tree-toggle]').forEach((button) => {
       button.addEventListener('click', (event) => {
         event.stopPropagation();
-        const children = button.closest('li')?.querySelector(':scope > .tree-children');
-        if (!children) return;
-        const expanded = children.classList.toggle('collapsed') === false;
-        button.setAttribute('aria-expanded', String(expanded));
-        button.textContent = expanded ? '收縮子節點' : '展開子節點';
+        const item = button.closest('li');
+        const children = directChild(item, '.tree-children');
+        setNodeExpanded(button, children, children ? children.classList.contains('collapsed') : false);
+      });
+    });
+    panel.querySelectorAll('.tree-card').forEach((card) => {
+      card.addEventListener('click', (event) => {
+        if (moved) { moved = false; return; }
+        if (event.target.closest('button, details, summary, .price-anchor')) return;
+        toggleNode(card);
       });
     });
     viewport.addEventListener('wheel', (event) => {
@@ -251,9 +273,68 @@ def chart_for(chart: dict, run: Path, report: dict) -> str:
         if not isinstance(price, (int, float)): return ""
         supports = sorted([x for x in sr.get("supports", []) if isinstance(x, (int, float)) and x < price], reverse=True)[:5]
         resistances = sorted([x for x in sr.get("resistances", []) if isinstance(x, (int, float)) and x > price])[:5]
-        levels = [(value, f"支撐 S{i+1}", "#22c55e") for i, value in enumerate(supports)] + [(price, "參考價", "#fafafa")] + [(value, f"壓力 R{i+1}", "#ef4444") for i, value in enumerate(resistances)]
+        anchor_index = {}
+        for tree in report.get("modules", {}).get("scenarios", {}).get("scenario_trees", []) or []:
+            for anchor in tree.get("anchor_book", []) or []:
+                if isinstance(anchor, dict):
+                    anchor_index.setdefault(str(anchor.get("id") or ""), anchor)
+                    try:
+                        anchor_index.setdefault((str(anchor.get("role") or ""), round(float(anchor.get("value")), 4)), anchor)
+                    except (TypeError, ValueError):
+                        pass
+
+        def find_anchor(role: str, value: float) -> dict:
+            # Current price is a singleton reference anchor.  Do not require
+            # exact float equality: the daily-context close and stock_eval's
+            # rounded last_price can differ by a few cents.
+            if role == "current":
+                return next((item for item in anchor_index.values()
+                             if isinstance(item, dict) and item.get("role") == "current"), {})
+            exact = anchor_index.get((role, round(float(value), 4)))
+            if exact:
+                return exact
+            candidates = [item for key, item in anchor_index.items()
+                          if isinstance(key, tuple) and key[0] == role and abs(key[1] - float(value)) <= 0.02]
+            return candidates[0] if candidates else {}
+
+        def hover_fields(anchor: dict) -> list[str]:
+            interval = anchor.get("confidence_interval") or {}
+            if interval.get("lower") is not None and interval.get("upper") is not None:
+                interval_text = (f"{money(anchor.get('value'), 2)} ± {money(interval.get('half_width'), 2)} "
+                                 f"({money(interval.get('lower'), 2)}–{money(interval.get('upper'), 2)})")
+                interval_method = f"{interval.get('method', '—')}；依據: {interval.get('basis', '—')}"
+            else:
+                interval_text = "未提供（沒有足夠的置信區間證據）"
+                interval_method = "未計算"
+            return [
+                str(anchor.get("source") or "未提供"),
+                str(anchor.get("method") or "未提供"),
+                str(anchor.get("confidence") or "未提供"),
+                interval_text,
+                interval_method,
+                str(anchor.get("status") or "未提供"),
+            ]
+
+        support_levels = []
+        for value in supports:
+            anchor = find_anchor("support", value)
+            if anchor:
+                support_levels.append((value, f"支撐 {anchor.get('id') or 'S'}", "#22c55e", anchor))
+        resistance_levels = []
+        for value in resistances:
+            anchor = find_anchor("resistance", value)
+            if anchor:
+                resistance_levels.append((value, f"壓力 {anchor.get('id') or 'R'}", "#ef4444", anchor))
+        current_anchor = find_anchor("current", price)
+        current_label = "現價" if current_anchor.get("status") == "same_session" else "現價（最新完整收盤參考）"
+        levels = support_levels + ([(price, current_label, "#fafafa", current_anchor)] if current_anchor else []) + resistance_levels
         levels.sort(key=lambda item: item[0])
-        fig = go.Figure(go.Bar(y=[i[1] for i in levels], x=[i[0] for i in levels], orientation="h", marker_color=[i[2] for i in levels], text=[f"${i[0]:.2f}" for i in levels], textposition="outside", name="價格結構"))
+        customdata = [hover_fields(item[3]) for item in levels]
+        hovertemplate = ("<b>%{y}</b><br>價格: $%{x:.2f}<br>證據: %{customdata[0]}<br>"
+                         "方法: %{customdata[1]}<br>置信度: %{customdata[2]}<br>"
+                         "置信區間: %{customdata[3]}<br>區間依據: %{customdata[4]}<br>"
+                         "狀態: %{customdata[5]}<extra></extra>")
+        fig = go.Figure(go.Bar(y=[i[1] for i in levels], x=[i[0] for i in levels], orientation="h", marker_color=[i[2] for i in levels], text=[f"${i[0]:.2f}" for i in levels], textposition="outside", customdata=customdata, hovertemplate=hovertemplate, name="價格結構"))
         fig.update_layout(xaxis_title="價格（USD）", yaxis_title="已計算結構", showlegend=False)
         return fig_html(fig, 340)
     if kind == "options_variance":
@@ -364,8 +445,18 @@ def _anchors_html(node: dict) -> str:
         for anchor in anchors:
             if not isinstance(anchor, dict): continue
             role = _anchor_class(str(anchor.get("role") or "current"))
-            title = f"來源: {anchor.get('source','—')} | 方法: {anchor.get('method','—')} | 信心: {anchor.get('confidence','—')} | 狀態: {anchor.get('status','—')}"
-            chips.append(f"<span class='price-anchor {esc(role)}' title='{esc(title)}'><span>{esc(anchor.get('label'))}</span><span class='p'>{money(anchor.get('value'),2)}</span></span>")
+            interval = anchor.get("confidence_interval") or {}
+            if interval.get("lower") is not None and interval.get("upper") is not None:
+                interval_text = (f"置信區間: {money(anchor.get('value'), 2)} ± {money(interval.get('half_width'), 2)} "
+                                 f"({money(interval.get('lower'), 2)}–{money(interval.get('upper'), 2)})")
+                interval_method = f"置信區間方法: {interval.get('method', '—')}；依據: {interval.get('basis', '—')}"
+            else:
+                interval_text = "置信區間: 未提供（沒有足夠的置信區間證據）"
+                interval_method = "置信區間方法: 未計算"
+            title = (f"證據: {anchor.get('source','—')} | 方法: {anchor.get('method','—')} | "
+                     f"置信度: {anchor.get('confidence','—')} | {interval_text} | "
+                     f"{interval_method} | 狀態: {anchor.get('status','—')}")
+            chips.append(f"<span tabindex='0' class='price-anchor provenance {esc(role)}' title='{esc(title)}' data-tooltip='{esc(title)}'><span>{esc(anchor.get('label'))}</span><span class='p'>{money(anchor.get('value'),2)}</span></span>")
         return "<div class='tree-anchors'>" + "".join(chips) + "</div>"
     refs = node.get("price_reference", {})
     if not refs: return ""

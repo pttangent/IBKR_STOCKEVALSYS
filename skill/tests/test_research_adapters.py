@@ -27,6 +27,21 @@ class ResearchAdapterTests(unittest.TestCase):
         self.assertEqual(result["facts"]["revenue"]["value"], 100)
         self.assertEqual(result["facts"]["revenue"]["evidence_label"], "FACT")
 
+    def test_sec_canonical_financials_reject_mixed_duration_periods(self):
+        def row(value, start, end, accn):
+            return {"val": value, "start": start, "end": end, "filed": "2026-08-01", "form": "10-Q", "accn": accn}
+        concepts = {
+            "RevenueFromContractWithCustomerExcludingAssessedTax": [row(100, "2026-04-01", "2026-06-30", "q")],
+            "GrossProfit": [row(50, "2026-04-01", "2026-06-30", "q")],
+            "NetIncomeLoss": [row(10, "2026-04-01", "2026-06-30", "q")],
+            "NetCashProvidedByUsedInOperatingActivities": [row(20, "2026-01-01", "2026-06-30", "h1")],
+        }
+        facts = {"facts": {"us-gaap": {name: {"units": {"USD": rows}} for name, rows in concepts.items()}}}
+        result = extract_canonical_financials(facts, "2026-08-13")
+        self.assertFalse(result["quality"]["ratio_safe"])
+        self.assertEqual(result["quality"]["duration_group"]["accession"], "q")
+        self.assertNotIn("operating_cash_flow", result["facts"])
+
     def test_form4_parser_preserves_transaction_code(self):
         xml = """<ownershipDocument>
         <periodOfReport>2026-08-01</periodOfReport>
@@ -81,4 +96,3 @@ class ResearchAdapterTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

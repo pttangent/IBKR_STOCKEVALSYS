@@ -118,6 +118,10 @@ class StructuredReportTests(unittest.TestCase):
         self.assertEqual(hold["sizing_tier"], "quarter")
         self.assertTrue(hold["price_anchors"])
         self.assertTrue(all(item.get("source") and item.get("method") for item in hold["price_anchors"]))
+        structural = next(item for item in hold["price_anchors"] if item["confidence_interval"])
+        self.assertEqual(structural["confidence_interval"]["kind"], "structural_tolerance")
+        self.assertLess(structural["confidence_interval"]["lower"], structural["value"])
+        self.assertGreater(structural["confidence_interval"]["upper"], structural["value"])
 
     def test_same_session_tree_uses_real_intraday_anchors_when_present(self):
         intraday_context = {
@@ -136,6 +140,13 @@ class StructuredReportTests(unittest.TestCase):
         self.assertIn("intraday_1m.json", anchors["VWAP"]["source"])
         self.assertAlmostEqual(anchors["ORH"]["value"], 102.4)
         self.assertAlmostEqual(anchors["ORL"]["value"], 98.8)
+        self.assertEqual(anchors["ORH"]["confidence_interval"]["basis"], "stock_eval.json:technical.momentum.atr14")
+
+    def test_anchor_book_always_contains_current_price_reference(self):
+        tree = build_scenario_trees(self._technical(), {}, {})[0]
+        current = next(item for item in tree["anchor_book"] if item["role"] == "current")
+        self.assertAlmostEqual(current["value"], 100.0)
+        self.assertEqual(current["source"], "stock_eval.json:technical.last_price")
 
     def test_validator_rejects_scenario_anchor_without_provenance(self):
         tree = build_scenario_trees(self._technical(), {}, {})[0]

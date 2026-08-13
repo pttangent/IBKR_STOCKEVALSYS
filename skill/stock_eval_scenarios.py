@@ -20,14 +20,37 @@ def _number(value: Any) -> float | None:
         return None
 
 
+def _structural_interval(value: Any, atr14: Any, *, role: str) -> dict[str, Any] | None:
+    """Return a transparent structural band, never a statistical CI claim."""
+    price = _number(value)
+    atr = _number(atr14)
+    if price is None or atr is None or atr <= 0 or role not in {
+        "support", "resistance", "intraday_support", "intraday_resistance",
+        "volume_node_support", "volume_node_resistance",
+    }:
+        return None
+    half_width = round(max(0.01, atr * 0.05), 2)
+    return {
+        "kind": "structural_tolerance",
+        "lower": round(max(0.01, price - half_width), 2),
+        "upper": round(price + half_width, 2),
+        "half_width": half_width,
+        "method": "0.05 × ATR14；結構容許帶，不是統計置信區間",
+        "basis": "stock_eval.json:technical.momentum.atr14",
+        "statistical_confidence": False,
+    }
+
+
 def _anchor(anchor_id: str, label: str, value: Any, *, role: str, source: str,
-            method: str, confidence: str = "medium", status: str = "observed") -> dict[str, Any] | None:
+            method: str, confidence: str = "medium", status: str = "observed",
+            confidence_interval: dict[str, Any] | None = None) -> dict[str, Any] | None:
     price = _number(value)
     if price is None or price <= 0:
         return None
     return {
         "id": anchor_id, "label": label, "value": price, "role": role,
         "source": source, "method": method, "confidence": confidence, "status": status,
+        "confidence_interval": confidence_interval,
     }
 
 
@@ -63,13 +86,13 @@ def _build_anchor_book(technical: dict[str, Any], intraday_context: dict[str, An
             f"S{index + 1}", f"支撐 S{index + 1}", value, role="support",
             source=f"stock_eval.json:technical.support_resistance.supports[{index}]",
             method="deterministic support candidate from swing/Fibonacci support bundle",
-            confidence="medium"))
+            confidence="medium", confidence_interval=_structural_interval(value, atr, role="support")))
     for index, value in enumerate(resistances[:4]):
         upper.append(_anchor(
             f"R{index + 1}", f"壓力 R{index + 1}", value, role="resistance",
             source=f"stock_eval.json:technical.support_resistance.resistances[{index}]",
             method="deterministic resistance candidate from swing/Fibonacci resistance bundle",
-            confidence="medium"))
+            confidence="medium", confidence_interval=_structural_interval(value, atr, role="resistance")))
 
     for key, label in (("ema20", "EMA20"), ("sma50", "SMA50"), ("sma200", "SMA200")):
         value = _number(ma.get(key))
@@ -86,10 +109,12 @@ def _build_anchor_book(technical: dict[str, Any], intraday_context: dict[str, An
                     method="same-session volume-weighted average price", confidence="high"),
             _anchor("ORH", "15 分鐘開盤區間高點", intraday_context.get("orh"), role="intraday_resistance",
                     source=f"{intraday_context.get('source_artifact', 'intraday')}:first-15m",
-                    method="first 15 one-minute bars high", confidence="high"),
+                    method="first 15 one-minute bars high", confidence="high",
+                    confidence_interval=_structural_interval(intraday_context.get("orh"), atr, role="intraday_resistance")),
             _anchor("ORL", "15 分鐘開盤區間低點", intraday_context.get("orl"), role="intraday_support",
                     source=f"{intraday_context.get('source_artifact', 'intraday')}:first-15m",
-                    method="first 15 one-minute bars low", confidence="high"),
+                    method="first 15 one-minute bars low", confidence="high",
+                    confidence_interval=_structural_interval(intraday_context.get("orl"), atr, role="intraday_support")),
         ])
 
     volume_nodes = technical.get("close_weighted_volume_nodes", []) or []
@@ -105,7 +130,7 @@ def _build_anchor_book(technical: dict[str, Any], intraday_context: dict[str, An
                 f"VOLNODE{index + 1}", f"成交量節點 {index + 1}", value, role=role,
                 source=f"stock_eval.json:technical.close_weighted_volume_nodes[{index}]",
                 method="daily close-weighted volume node; not a true intraday volume profile",
-                confidence="low"))
+                confidence="low", confidence_interval=_structural_interval(value, atr, role=role)))
 
     if price is not None and atr:
         volatility.extend([

@@ -189,11 +189,87 @@ def _latest_reported_fact(
     return candidates[0]
 
 
+def _candidate_rows(
+    companyfacts: dict[str, Any],
+    concepts: tuple[tuple[str, str], ...],
+    *,
+    as_of: str | None,
+) -> list[dict[str, Any]]:
+    cutoff = as_of or "9999-12-31"
+    rows: list[dict[str, Any]] = []
+    for taxonomy, concept in concepts:
+        for row in _facts_for_concept(companyfacts, taxonomy, concept):
+            filed = str(row.get("filed") or "")
+            form = str(row.get("form") or "")
+            if filed and filed <= cutoff and form in {"10-K", "10-Q", "8-K", "20-F", "40-F", "6-K"}:
+                rows.append(row)
+    return rows
+
+
+def _group_key(row: dict[str, Any], *, instant: bool) -> tuple[str, ...]:
+    accession = str(row.get("accn") or "")
+    filed = str(row.get("filed") or "")
+    form = str(row.get("form") or "")
+    end = str(row.get("end") or "")
+    start = "" if instant else str(row.get("start") or "")
+    # Accession is the strongest filing identity. The remaining fields keep
+    # synthetic/older companyfacts rows deterministic when accn is absent.
+    return (accession, filed, form, start, end)
+
+
+def _select_period_group(
+    rows_by_canonical: dict[str, list[dict[str, Any]]],
+    *,
+    required: tuple[str, ...],
+    instant: bool,
+) -> tuple[tuple[str, ...] | None, dict[tuple[str, ...], list[dict[str, Any]]]]:
+    groups: dict[tuple[str, ...], list[dict[str, Any]]] = {}
+    for rows in rows_by_canonical.values():
+        for row in rows:
+            groups.setdefault(_group_key(row, instant=instant), []).append(row)
+    if not groups:
+        return None, groups
+
+    def rank(item: tuple[tuple[str, ...], list[dict[str, Any]]]) -> tuple[int, str, str, int]:
+        key, rows = item
+        concepts = {str(row.get("canonical_key") or "") for row in rows}
+        latest_filed = max((str(row.get("filed") or "") for row in rows), default="")
+        latest_end = max((str(row.get("end") or "") for row in rows), default="")
+        return (len(concepts.intersection(required)), latest_filed, latest_end, len(rows))
+
+    selected = max(groups.items(), key=rank)[0]
+    return selected, groups
+
+
 def extract_canonical_financials(companyfacts: dict[str, Any], as_of: str | None = None) -> dict[str, Any]:
     out: dict[str, Any] = {}
     missing: list[str] = []
+    duration_keys = ("revenue", "gross_profit", "operating_income", "net_income", "eps_diluted", "operating_cash_flow", "capex")
+    instant_keys = tuple(key for key in CANONICAL_CONCEPTS if key not in duration_keys)
+    duration_rows: dict[str, list[dict[str, Any]]] = {}
+    instant_rows: dict[str, list[dict[str, Any]]] = {}
     for canonical, concepts in CANONICAL_CONCEPTS.items():
-        row = _latest_reported_fact(companyfacts, concepts, as_of=as_of)
+        rows = _candidate_rows(companyfacts, concepts, as_of=as_of)
+        for row in rows:
+            row["canonical_key"] = canonical
+        (duration_rows if canonical in duration_keys else instant_rows)[canonical] = rows
+
+    duration_required = ("revenue", "gross_profit", "net_income", "operating_cash_flow")
+    instant_required = ("cash_and_equivalents", "assets", "liabilities", "equity")
+    duration_group, duration_groups = _select_period_group(duration_rows, required=duration_required, instant=False)
+    instant_group, instant_groups = _select_period_group(instant_rows, required=instant_required, instant=True)
+
+    def selected_row(canonical: str, rows: list[dict[str, Any]], group: tuple[str, ...] | None) -> dict[str, Any] | None:
+        matching = [row for row in rows if group is not None and _group_key(row, instant=canonical in instant_keys) == group]
+        if not matching:
+            return None
+        matching.sort(key=lambda row: (str(row.get("filed") or ""), bool(row.get("frame")), str(row.get("frame") or "")), reverse=True)
+        return matching[0]
+
+    for canonical, concepts in CANONICAL_CONCEPTS.items():
+        rows = (instant_rows if canonical in instant_keys else duration_rows).get(canonical, [])
+        group = instant_group if canonical in instant_keys else duration_group
+        row = selected_row(canonical, rows, group)
         if row is None:
             missing.append(canonical)
             continue
@@ -212,7 +288,35 @@ def extract_canonical_financials(companyfacts: dict[str, Any], as_of: str | None
             "xbrl_concept": row.get("concept"),
             "evidence_label": "FACT",
         }
-    return {"facts": out, "missing_canonical_fields": missing}
+    duration_concepts = {str(row.get("canonical_key")) for row in duration_groups.get(duration_group, [])} if duration_group else set()
+    instant_concepts = {str(row.get("canonical_key")) for row in instant_groups.get(instant_group, [])} if instant_group else set()
+    duration_valid = bool(duration_group and set(duration_required).issubset(duration_concepts))
+    instant_valid = bool(instant_group and set(instant_required).issubset(instant_concepts))
+    return {
+        "facts": out,
+        "missing_canonical_fields": missing,
+        "quality": {
+            "duration_period_alignment": duration_valid,
+            "duration_group": {
+                "accession": duration_group[0] if duration_group else None,
+                "filed": duration_group[1] if duration_group else None,
+                "form": duration_group[2] if duration_group else None,
+                "period_start": duration_group[3] if duration_group else None,
+                "period_end": duration_group[4] if duration_group else None,
+                "concepts": sorted(duration_concepts),
+            },
+            "instant_filing_alignment": instant_valid,
+            "instant_group": {
+                "accession": instant_group[0] if instant_group else None,
+                "filed": instant_group[1] if instant_group else None,
+                "form": instant_group[2] if instant_group else None,
+                "instant": instant_group[4] if instant_group else None,
+                "concepts": sorted(instant_concepts),
+            },
+            "ratio_safe": duration_valid,
+            "policy": "duration ratios require one accession/start/end/form group; balance-sheet facts require one latest filing/instant group",
+        },
+    }
 
 
 def _text(root: ET.Element, tag: str) -> str | None:

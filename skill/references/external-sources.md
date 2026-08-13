@@ -8,7 +8,7 @@ Use this reference when a report needs filings, macro regime, consensus, public 
 
 It loads `.env.local`, never records secret values, and reports status/schema summaries only. Do not call every endpoint automatically in a normal report: Alpha Vantage is limited, SEC and FRED are primary evidence, and the other services are role-specific complements.
 
-## Project capability snapshot (validated 2026-08-07)
+## Project capability snapshot (validated 2026-08-13)
 
 Treat this as the local capability baseline, not a permanent provider guarantee; rerun `test_external_sources.py` when credentials, entitlements, or provider behavior change.
 
@@ -18,8 +18,10 @@ Treat this as the local capability baseline, not a permanent provider guarantee;
 | Issuer IR sites | available | primary releases/KPI/guidance/presentations |
 | FRED + ALFRED vintage | available | current macro + PIT macro |
 | IBKR News | available | timestamped news/catalyst feed in project MCP |
-| Alpha Vantage estimates/transcript/calendar | available | Street expectations and event complements |
-| Finnhub quote/news | available | secondary quote/news complement |
+| Alpha Vantage fundamental/earnings endpoints | `OVERVIEW`, `INCOME_STATEMENT`, `BALANCE_SHEET`, `CASH_FLOW`, `SHARES_OUTSTANDING`, `EARNINGS`, `EARNINGS_ESTIMATES`, `EARNINGS_CALENDAR`, `LISTING_STATUS` returned valid HTTP 200 structures for KLAC; calendar/listing are CSV | secondary financial/earnings complement; cache, parse by content type, and enforce quota handling |
+| Finnhub reported/context endpoints | `profile2`, `peers`, `metric`, `company-news`, `earnings`, `calendar`, `symbols`, `financials-reported` returned HTTP 200 for TER; standardized `financials` returned 403 | secondary quote/news/expectation/event and reported-financial complement; never overrides SEC or repairs period mismatch |
+| SimFin list/general/statements/shares | list returned HTTP 200; legacy non-compact general/statements returned 404; compact general/statements/shares returned HTTP 200; one rapid request returned 429 | secondary as-reported/fundamental cross-check; use compact routes, sequential pacing, cache, and no automatic PIT or SEC replacement |
+| Alpaca paper/trading + market data | paper account HTTP 200; assets, clock, calendar, stock IEX snapshot/trade/quote/bars, news, corporate actions, option contracts and indicative option snapshots HTTP 200; SIP stock, OPRA option snapshots, and historical option bars HTTP 403 | market/event layer; no fundamental statements; Basic indicative options are quote/trade evidence only unless IV/Greeks are actually present |
 | Massive | available | historical market/options complement |
 | yfinance history/options expiry discovery | available | independent unofficial cross-check |
 | Polymarket Gamma/CLOB | available | market-implied event context |
@@ -29,6 +31,10 @@ Treat this as the local capability baseline, not a permanent provider guarantee;
 | Reddit | OAuth/official approval unavailable | do not use |
 
 This snapshot does not modify MCP servers or broker infrastructure; it only constrains skill routing around tested capabilities.
+
+See [api-capability-matrix.md](api-capability-matrix.md) for the request parameters and observed response schemas for every endpoint in the fundamental-source checklist.
+
+For the endpoint-by-endpoint evidence and the distinction between HTTP 200, empty payloads, quota notes, and entitlement failures, read [api-capability-matrix.md](api-capability-matrix.md).
 
 ## Credentials and official documentation
 
@@ -41,7 +47,9 @@ Credentials are local-only environment variables in `stock-eval-system/.env.loca
 | FRED/ALFRED | `FRED_API_KEY` | [FRED API](https://fred.stlouisfed.org/docs/api/fred/), [API keys](https://fred.stlouisfed.org/docs/api/fred/v2/api_key.html) | macro series and point-in-time vintages |
 | IBKR News | local TWS/MCP | [IBKR News API](https://interactivebrokers.github.io/tws-api/news.html) | historical headlines and selected article bodies |
 | Alpha Vantage | `ALPHA_VANTAGE_API_KEY` | [Alpha Vantage docs](https://www.alphavantage.co/documentation/) | estimates, transcripts, earnings calendar |
-| Finnhub | `FINNHUB_API_KEY` | [Finnhub API docs](https://finnhub.io/docs/api) | quote/news complement, not primary accounting evidence |
+| Finnhub | `FINNHUB_API_KEY` | [reported financials](https://finnhub.io/docs/api/financials-reported), [metrics](https://finnhub.io/docs/api/metric) | secondary reported-financials/metrics cross-check; standardized statements may be entitlement-limited |
+| SimFin | `SIMFIN_API_KEY` | [Getting Started](https://simfin.readme.io/reference/getting-started-1), [statements](https://simfin.readme.io/reference/statements-1), [rate limits](https://simfin.readme.io/reference/rate-limits) | secondary statements/general/shares cross-check; Authorization `api-key <key>` |
+| Alpaca | `ALPACA_API_KEY_ID`, `ALPACA_API_SECRET_KEY`, `ALPACA_TRADING_BASE_URL`, `ALPACA_DATA_BASE_URL` | [Getting started](https://docs.alpaca.markets/us/docs/getting-started), [market data](https://docs.alpaca.markets/us/docs/about-market-data-api), [option chain](https://docs.alpaca.markets/us/v1.4.2/reference/optionchain) | IEX stock market data, indicative options, news, corporate actions, assets; not accounting fundamentals |
 | Massive | `MASSIVE_API_KEY`, `MASSIVE_BASE_URL` | [Massive REST](https://massive.com/docs/rest/quickstart) | historical market/options complement |
 | yfinance | `YFINANCE_ENABLED` | [yfinance docs](https://ranaroussi.github.io/yfinance/) | independent fallback/cross-check; unofficial |
 | Polymarket | none | [Polymarket API](https://docs.polymarket.com/api-reference/introduction) | market-implied event probability, never a fact |

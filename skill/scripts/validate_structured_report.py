@@ -11,7 +11,7 @@ STATES = {"RESEARCH_READY", "READY_CONDITIONAL", "WAIT_CONFIRMATION", "NEEDS_EVI
 REQUIRED_MODULE = {"title", "status", "freshness_status", "source_artifacts", "missing_fields"}
 REQUIRED_INTERPRETATION = {"what", "what_observed", "read", "read_result", "why", "why_now", "limit", "limit_effect"}
 REQUIRED_SCENARIO_NODE = {"id", "label", "trigger", "watch", "interpretation", "response", "invalidation", "action_boundary", "sizing_tier", "price_reference", "price_anchors", "children"}
-REQUIRED_PRICE_ANCHOR = {"id", "label", "value", "role", "source", "method", "confidence", "status"}
+REQUIRED_PRICE_ANCHOR = {"id", "label", "value", "role", "source", "method", "confidence", "status", "confidence_interval"}
 SIZING_TIERS = {"none", "quarter", "half", "full_diagnostic", "risk_only"}
 LONG_TERM_TECHNICAL_TOKENS = ("現價", "股價", "支撐", "阻力", "壓力", "EMA", "SMA", "VWAP", "ORH", "ORL", "ATR", "突破", "跌破", "回踩", "反抽", "收復", "前高", "前低")
 
@@ -41,6 +41,20 @@ def _validate_price_anchor(anchor: dict, path: str, errors: list[str]) -> None:
     for key in ["id", "label", "role", "source", "method", "confidence", "status"]:
         if key in anchor and not str(anchor.get(key) or "").strip():
             errors.append(f"{path} empty {key}")
+    interval = anchor.get("confidence_interval")
+    if interval is not None:
+        if not isinstance(interval, dict):
+            errors.append(f"{path} confidence_interval must be object or null")
+        else:
+            for key in ["kind", "method", "basis"]:
+                if not str(interval.get(key) or "").strip():
+                    errors.append(f"{path} confidence_interval missing {key}")
+            for key in ["lower", "upper", "half_width"]:
+                value = interval.get(key)
+                if not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+                    errors.append(f"{path} confidence_interval invalid {key}")
+            if interval.get("lower", 0) > interval.get("upper", 0):
+                errors.append(f"{path} confidence_interval lower > upper")
 
 
 def _validate_scenario_node(node: dict, path: str, errors: list[str], *, horizon: str | None = None) -> None:

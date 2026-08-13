@@ -97,7 +97,23 @@ HTML 應讓讀者一眼區分：
 - ATR/波動帶：琥珀色；
 - current/reference price：白色或中性色。
 
-滑鼠停留或展開時應能看到來源/算法，而不是只有一個 `$103.66`。
+滑鼠停留在情景樹價格 chip 或技術區支撐/阻力 bar 時，都應能看到來源/算法、置信度、狀態與價格區間，而不是只有一個 `$103.66`。Structured anchor 應增加：
+
+技術 level map 只允許繪製能匹配到 anchor book 的支撐/阻力；未匹配的技術候選必須抑制，不得繪製後再以「未提供」冒充證據。
+
+```json
+"confidence_interval": {
+  "kind": "structural_tolerance",
+  "lower": 391.5,
+  "upper": 392.5,
+  "half_width": 0.5,
+  "method": "0.05 × ATR14；結構容許帶，不是統計置信區間",
+  "basis": "stock_eval.json:technical.momentum.atr14",
+  "statistical_confidence": false
+}
+```
+
+`392 ± 0.5` 這種顯示必須能回溯到實際資料。若沒有足夠證據計算區間，HTML 必須顯示「區間未提供」，不得自行填入 ±0.5。
 
 ## 4. 日內情景樹使用「事件 primitive」組合
 
