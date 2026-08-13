@@ -12,3 +12,7 @@ wheels/
 .env*
 .vscode
 .archive
+
+# Local realtime-radar state
+data/*.sqlite3
+data/*.sqlite3-*
