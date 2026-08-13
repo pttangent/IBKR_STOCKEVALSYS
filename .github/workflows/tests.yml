@@ -22,3 +22,18 @@ jobs:
       - name: Radar pure-core unit tests
         working-directory: ibkr-mcp
         run: python -m unittest discover -s radar/tests -p 'test_*.py'
+      - name: Install pinned radar runtime
+        run: python -m pip install --disable-pip-version-check 'ib-async==2.0.1'
+      - name: Radar runtime import smoke
+        working-directory: ibkr-mcp
+        run: python -c "from radar.engine import RadarEngine; from radar.service import main"
+      - name: Radar UI JavaScript syntax
+        run: |
+          python - <<'PY'
+          import pathlib, re
+          html = pathlib.Path('ibkr-mcp/radar/ui/index.html').read_text(encoding='utf-8')
+          match = re.search(r'<script>(.*?)</script>', html, re.S)
+          assert match, 'missing inline radar script'
+          pathlib.Path('/tmp/radar-ui.js').write_text(match.group(1), encoding='utf-8')
+          PY
+          node --check /tmp/radar-ui.js
